@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="English365 icon">
+  <rect width="512" height="512" rx="96" fill="#0a84ff"/>
+  <circle cx="256" cy="256" r="170" fill="#ffffff" opacity="0.18"/>
+  <path d="M150 170h232v48H150zM150 250h160v44H150zM150 326h210v44H150z" fill="#ffffff"/>
+  <path d="M342 246c34 0 62 28 62 62v42c0 12-10 22-22 22h-38v-42h34v-22c0-20-16-36-36-36s-36 16-36 36v22h34v42h-38c-12 0-22-10-22-22v-42c0-34 28-62 62-62z" fill="#ffffff"/>
+</svg>

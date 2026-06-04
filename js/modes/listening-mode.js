@@ -1,0 +1,30 @@
+(function initListeningMode(window) {
+  'use strict';
+
+  var modes = window.English365Modes || {};
+
+  function render(store, state) {
+    var ui = window.English365UI;
+    var sentence = store.getCurrentSentence();
+    if (!sentence) {
+      return ui.backBar('Listening Mode', state.scene) + '<section class="practice-card"><p>No listening items available.</p></section>';
+    }
+
+    return [
+      ui.backBar('Listening Mode', sentence.scene),
+      '<section class="section-block"><div class="pill-row">' + ui.scenePills(sentence.scene) + '</div></section>',
+      '<section class="practice-card listening-card">',
+      '<p class="eyebrow">Listen First</p>',
+      '<button class="play-button" type="button" data-action="play-current">Play</button>',
+      window.English365UI.rateControl(state.prefs.speechRate),
+      state.transcriptVisible ? '<div class="answer-panel"><p class="eyebrow">Transcript</p>' + ui.answerList(sentence.answers) + '</div>' : '<button class="primary-button full" type="button" data-action="show-transcript">Show Transcript</button>',
+      state.chineseVisible ? '<div class="answer-panel"><p class="eyebrow">Chinese</p><p>' + ui.escapeHtml(sentence.cn) + '</p></div>' : '<button class="secondary-button full" type="button" data-action="show-chinese">Show Chinese</button>',
+      ui.primaryActions(),
+      '<button class="primary-button full" type="button" data-action="next-sentence">Next</button>',
+      '</section>',
+    ].join('');
+  }
+
+  modes.listening = { render: render };
+  window.English365Modes = modes;
+})(window);
