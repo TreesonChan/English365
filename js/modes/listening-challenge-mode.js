@@ -1,0 +1,48 @@
+(function initListeningChallengeMode(window) {
+  'use strict';
+
+  var modes = window.English365Modes || {};
+
+  function renderAnswerPanel(ui, sentence) {
+    return [
+      '<div class="answer-panel">',
+      '<p class="eyebrow">Chinese</p>',
+      '<p>' + ui.escapeHtml(sentence.cn) + '</p>',
+      '</div>',
+      '<div class="answer-panel">',
+      '<p class="eyebrow">American English</p>',
+      ui.answerList(sentence.answers),
+      '</div>',
+      '<div class="action-grid">',
+      '<button class="success-button" type="button" data-action="mark-correct-current">Understood</button>',
+      '<button class="danger-button" type="button" data-action="mark-wrong-current">Didn\'t Understand</button>',
+      '</div>',
+    ].join('');
+  }
+
+  function render(store, state) {
+    var ui = window.English365UI;
+    var sentence = store.getCurrentSentence();
+    if (!sentence) {
+      return ui.backBar('Listening Challenge Mode', state.scene) + '<section class="practice-card"><p>No listening challenge items available.</p></section>';
+    }
+
+    return [
+      ui.backBar('Listening Challenge Mode', sentence.scene),
+      '<section class="section-block"><div class="pill-row">' + ui.scenePills(sentence.scene) + '</div></section>',
+      '<section class="practice-card listening-card">',
+      '<p class="eyebrow">Listening Challenge</p>',
+      '<div class="action-grid">',
+      '<button class="play-button" type="button" data-action="play-current">Play</button>',
+      '<button class="secondary-button" type="button" data-action="play-current">Replay</button>',
+      '</div>',
+      window.English365UI.rateControl(state.prefs.speechRate),
+      state.answerVisible ? renderAnswerPanel(ui, sentence) : '<button class="primary-button full" type="button" data-action="show-answer">Show Answer</button>',
+      '<button class="primary-button full" type="button" data-action="next-sentence">Next</button>',
+      '</section>',
+    ].join('');
+  }
+
+  modes['listening-challenge'] = { render: render };
+  window.English365Modes = modes;
+})(window);

@@ -11,11 +11,9 @@
   --line: #dbe5f2;
   --shadow: 0 12px 32px rgba(30, 62, 103, 0.1);
 }
-
 * {
   box-sizing: border-box;
 }
-
 body {
   margin: 0;
   min-height: 100vh;
@@ -23,46 +21,56 @@ body {
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
 }
-
 button {
   font: inherit;
 }
+
 
 .app-shell {
   width: min(100%, 760px);
   min-height: 100vh;
   margin: 0 auto;
   padding: max(18px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
 }
 
+#app-root {
+  flex: 1 0 auto;
+}
+
+.app-footer {
+  flex: 0 0 auto;
+  margin-top: 28px;
+  padding: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+}
 .hero {
   padding: 12px 2px 18px;
 }
-
 .hero h1,
 .top-bar h2,
 .section-block h2 {
   margin: 0;
   letter-spacing: 0;
 }
-
 .hero h1 {
   font-size: 32px;
   line-height: 1.08;
 }
-
 .hero p {
   margin: 8px 0 0;
   color: var(--muted);
   font-size: 17px;
 }
-
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
-
 .stat-card,
 .continue-card,
 .practice-card,
@@ -74,12 +82,10 @@ button {
   border-radius: 8px;
   box-shadow: var(--shadow);
 }
-
 .stat-card {
   min-height: 82px;
   padding: 14px;
 }
-
 .stat-card span,
 .eyebrow {
   display: block;
@@ -89,13 +95,11 @@ button {
   letter-spacing: 0;
   text-transform: uppercase;
 }
-
 .stat-card strong {
   display: block;
   margin-top: 8px;
   font-size: 25px;
 }
-
 .continue-card,
 .section-block,
 .practice-card,
@@ -103,38 +107,32 @@ button {
   margin-top: 14px;
   padding: 16px;
 }
-
 .continue-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
-
 .continue-card h2,
 .continue-card p,
 .practice-card h3,
 .practice-card p {
   margin: 0;
 }
-
 .continue-card h2 {
   margin-top: 4px;
   font-size: 19px;
 }
-
 .continue-card p:last-child {
   margin-top: 4px;
   color: var(--muted);
 }
-
 .mode-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 10px;
   margin-top: 12px;
 }
-
 .mode-card,
 .primary-button,
 .secondary-button,
@@ -150,7 +148,6 @@ button {
   cursor: pointer;
   font-weight: 700;
 }
-
 .mode-card {
   display: flex;
   align-items: center;
@@ -160,14 +157,12 @@ button {
   color: var(--primary-strong);
   text-align: left;
 }
-
 .pill-row {
   display: flex;
   gap: 8px;
   overflow-x: auto;
   padding: 2px 0 4px;
 }
-
 .pill,
 .rate-button {
   flex: 0 0 auto;
@@ -175,24 +170,20 @@ button {
   background: #edf1f7;
   color: var(--text);
 }
-
 .pill.is-active,
 .rate-button.is-active {
   background: var(--primary);
   color: #fff;
 }
-
 .top-bar {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;
 }
-
 .top-bar h2 {
   font-size: 24px;
 }
-
 .icon-button {
   width: 44px;
   background: var(--card);
@@ -201,13 +192,11 @@ button {
   line-height: 1;
   border: 1px solid var(--line);
 }
-
 .practice-card h3 {
   margin-top: 8px;
   font-size: 25px;
   line-height: 1.24;
 }
-
 .answer-panel {
   margin-top: 14px;
   padding: 14px;
@@ -215,17 +204,14 @@ button {
   border: 1px solid var(--line);
   border-radius: 8px;
 }
-
 .answer-list {
   margin: 8px 0 0;
   padding-left: 22px;
 }
-
 .answer-list li {
   margin: 8px 0;
   line-height: 1.35;
 }
-
 .rate-control,
 .action-grid,
 .nav-row,
@@ -233,53 +219,43 @@ button {
   display: grid;
   gap: 8px;
 }
-
 .rate-control {
   grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-top: 14px;
 }
-
 .action-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 14px;
 }
-
 .nav-row {
   grid-template-columns: 1fr 1fr;
   margin-top: 10px;
 }
-
 .primary-button,
 .play-button {
   background: var(--primary);
   color: #fff;
 }
-
 .primary-button:hover,
 .play-button:hover {
   background: var(--primary-strong);
 }
-
 .secondary-button {
   background: #edf1f7;
   color: var(--text);
 }
-
 .success-button {
   background: #e9f8f0;
   color: var(--success);
 }
-
 .danger-button {
   background: #fff0f0;
   color: var(--danger);
 }
-
 .full {
   width: 100%;
   margin-top: 14px;
 }
-
 .play-button {
   display: block;
   width: 136px;
@@ -288,31 +264,25 @@ button {
   border-radius: 50%;
   font-size: 22px;
 }
-
 .list-stack {
   display: grid;
   gap: 12px;
 }
-
 .list-card {
   padding: 14px;
 }
-
 .list-card h3 {
   margin: 6px 0;
   font-size: 18px;
 }
-
 .list-card p {
   margin: 0;
   color: var(--muted);
 }
-
 .list-actions {
   grid-template-columns: 1fr 1fr;
   margin-top: 12px;
 }
-
 .toast {
   position: fixed;
   left: 50%;
@@ -325,7 +295,6 @@ button {
   color: #fff;
   font-weight: 700;
 }
-
 @media (min-width: 640px) {
   .stats-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));

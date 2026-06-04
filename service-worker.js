@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'english365-v2-2026-06-03';
+const CACHE_VERSION = 'english365-cache-version-footer-2026-06-04';
 const CACHE_ASSETS = [
   './',
   './index.html',
@@ -19,6 +19,7 @@ const CACHE_ASSETS = [
   './js/modes/sentence-mode.js',
   './js/modes/conversation-mode.js',
   './js/modes/listening-mode.js',
+  './js/modes/listening-challenge-mode.js',
   './js/modes/favorites-mode.js',
   './js/modes/mistakes-mode.js',
   './data/scenes.js',
@@ -67,6 +68,19 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') {
     return;
   }
+
+  const requestUrl = new URL(event.request.url);
+  if (requestUrl.pathname.endsWith('/js/config.js')) {
+    event.respondWith(
+      fetch(event.request).then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, copy));
+        return response;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) {

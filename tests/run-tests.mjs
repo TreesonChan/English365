@@ -89,6 +89,18 @@ function loadScripts(context, files) {
   }
 }
 
+function walkFiles(dir, list = []) {
+  for (const entry of fs.readdirSync(path(dir), { withFileTypes: true })) {
+    const name = dir + '/' + entry.name;
+    if (entry.isDirectory()) {
+      walkFiles(name, list);
+    } else {
+      list.push(name);
+    }
+  }
+  return list;
+}
+
 function test(name, fn) {
   try {
     fn();
@@ -132,6 +144,27 @@ const coreFiles = [
   'js/store.js',
 ];
 
+const uiModeFiles = [
+  'js/ui/cards.js',
+  'js/ui/buttons.js',
+  'js/modes/listening-challenge-mode.js',
+];
+
+const fullAppFiles = coreFiles.concat([
+  'js/tts.js',
+  'js/ui/cards.js',
+  'js/ui/buttons.js',
+  'js/ui/toast.js',
+  'js/ui/home.js',
+  'js/modes/sentence-mode.js',
+  'js/modes/conversation-mode.js',
+  'js/modes/listening-mode.js',
+  'js/modes/listening-challenge-mode.js',
+  'js/modes/favorites-mode.js',
+  'js/modes/mistakes-mode.js',
+  'app.js',
+]);
+
 const context = createContext();
 loadScripts(context, coreFiles);
 
@@ -153,6 +186,63 @@ test('index.html loads every v2 corpus data pack before the corpus index', () =>
     html.indexOf('src="data/conversations-v2.js"') < html.indexOf('src="data/index.js"'),
     'v2 conversations load before the corpus index'
   );
+});
+
+test('version is centralized and rendered in the footer', () => {
+  assertEqual(context.English365Config.version, 'V1.1.0', 'configured app version');
+
+  const runtimeFiles = ['index.html', 'app.js', 'style.css', 'service-worker.js']
+    .concat(walkFiles('js'))
+    .concat(walkFiles('data'))
+    .concat(['manifest.json']);
+  const versionOccurrences = [];
+  for (const file of runtimeFiles) {
+    const matches = read(file).match(/V1.1.0/g) || [];
+    for (let index = 0; index < matches.length; index += 1) {
+      versionOccurrences.push(file);
+    }
+  }
+  assertEqual(versionOccurrences.length, 1, 'single runtime version literal');
+  assertEqual(versionOccurrences[0], 'js/config.js', 'runtime version literal lives in config');
+
+  const html = read('index.html');
+  assert(html.includes('<footer'), 'index.html has a footer element');
+  assert(html.includes('id="app-version"'), 'footer has app-version id');
+
+  const appRoot = { innerHTML: '', addEventListener() {} };
+  const versionRoot = { textContent: '' };
+  const appContext = createContext();
+  appContext.document = {
+    addEventListener(event, callback) {
+      if (event === 'DOMContentLoaded') {
+        callback();
+      }
+    },
+    getElementById(id) {
+      if (id === 'app-root') {
+        return appRoot;
+      }
+      if (id === 'app-version') {
+        return versionRoot;
+      }
+      return null;
+    },
+    querySelector() { return null; },
+    createElement() {
+      return { setAttribute() {}, appendChild() {}, classList: { add() {}, remove() {}, toggle() {} } };
+    },
+    body: { classList: { add() {}, remove() {}, toggle() {} }, appendChild() {} },
+  };
+  loadScripts(appContext, fullAppFiles);
+  assertEqual(versionRoot.textContent, appContext.English365Config.version, 'footer renders configured version');
+});
+
+test('Listening Challenge Mode is registered in app entry points', () => {
+  const modeIds = context.English365Config.modes.map((mode) => mode.id);
+  assert(modeIds.includes('listening-challenge'), 'config registers listening-challenge mode');
+  const html = read('index.html');
+  assert(html.includes('src="js/modes/listening-challenge-mode.js"'), 'index.html loads listening challenge mode');
+  assert(read('service-worker.js').includes('./js/modes/listening-challenge-mode.js'), 'service worker caches listening challenge mode');
 });
 
 test('localStorage keys keep the confirmed v1 contract', () => {
@@ -203,6 +293,47 @@ test('corpus ids are unique and every training item has real text', () => {
       assert(turn.en || (Array.isArray(turn.answers) && turn.answers.length > 0), `${conversation.id} turn has English`);
     }
   }
+});
+
+test('Listening Challenge hides prompts until answer and can add mistakes', () => {
+  assert(fs.existsSync(path('js/modes/listening-challenge-mode.js')), 'listening challenge mode file exists');
+  const challengeContext = createContext();
+  loadScripts(challengeContext, coreFiles.concat(uiModeFiles));
+  const store = challengeContext.English365Store.createStore();
+
+  store.setScene('hotel');
+  store.selectSentenceById('hotel-001');
+  store.openMode('listening-challenge');
+
+  let state = store.getState();
+  assertEqual(state.mode, 'listening-challenge', 'challenge mode selected');
+  assert(state.currentItemId !== 'hotel-001', 'challenge selects a random sentence on entry');
+
+  const sentence = store.getCurrentSentence();
+  const renderer = challengeContext.English365Modes['listening-challenge'];
+  const initialHtml = renderer.render(store, state);
+  assert(initialHtml.includes('Play'), 'challenge shows Play');
+  assert(initialHtml.includes('Replay'), 'challenge shows Replay');
+  assert(initialHtml.includes('Show Answer'), 'challenge shows Show Answer');
+  assert(initialHtml.includes('Next'), 'challenge shows Next');
+  assert(!initialHtml.includes(challengeContext.English365UI.escapeHtml(sentence.cn)), 'initial challenge hides Chinese');
+  for (const answer of sentence.answers) {
+    assert(!initialHtml.includes(challengeContext.English365UI.escapeHtml(answer)), 'initial challenge hides English answer');
+  }
+
+  store.showAnswer();
+  state = store.getState();
+  const answerHtml = renderer.render(store, state);
+  assert(answerHtml.includes(challengeContext.English365UI.escapeHtml(sentence.cn)), 'answer view shows Chinese');
+  assert(answerHtml.includes(challengeContext.English365UI.escapeHtml(sentence.answers[0])), 'answer view shows English');
+  assert(answerHtml.includes('Understood'), 'answer view shows Understood');
+  assert(answerHtml.includes("Didn't Understand"), 'answer view shows Did not understand');
+
+  const ref = store.currentRef();
+  store.markWrong();
+  const mistake = challengeContext.English365Storage.getMistakes()[challengeContext.English365Corpus.refKey(ref)];
+  assert(mistake, 'Did not understand adds current sentence to mistakes');
+  assertEqual(mistake.wrongCount, 1, 'challenge mistake wrong count');
 });
 
 test('Continue Learning saves lastMode, lastScene, and lastItemId', () => {

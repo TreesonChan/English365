@@ -3,6 +3,7 @@
 
   var store;
   var root;
+  var versionRoot;
 
   function canRegisterServiceWorker() {
     return window.location.protocol === 'https:' ||
@@ -15,6 +16,12 @@
       window.navigator.serviceWorker.register('service-worker.js').catch(function logSwError(error) {
         console.warn('Service worker registration failed:', error);
       });
+    }
+  }
+
+  function renderVersion() {
+    if (versionRoot) {
+      versionRoot.textContent = window.English365Config.version;
     }
   }
 
@@ -133,6 +140,8 @@
       console.warn('Corpus validation warnings:', errors);
     }
     root = document.getElementById('app-root');
+    versionRoot = document.getElementById('app-version');
+    renderVersion();
     store = window.English365Store.createStore();
     window.English365AppStore = store;
     root.addEventListener('click', handleClick);

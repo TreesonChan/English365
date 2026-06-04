@@ -96,9 +96,20 @@
       notify();
     }
 
+    function selectRandomSentenceForCurrentScene() {
+      var sentence = corpus.getRandomSentence(state.scene, state.currentItemId);
+      if (!sentence) {
+        return;
+      }
+      state.currentItemId = sentence.id;
+    }
+
     function openMode(mode) {
       if (mode === 'conversation' && !state.currentConversationId) {
         startConversation(state.scene, true);
+      }
+      if (mode === 'listening-challenge') {
+        selectRandomSentenceForCurrentScene();
       }
       setMode(mode);
     }

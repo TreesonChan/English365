@@ -28,7 +28,7 @@
     next.totalLearned += 1;
     next.todayCompleted += 1;
 
-    if (kind === 'listening') {
+    if (kind === 'listening' || kind === 'listening-challenge') {
       next.listeningCount += 1;
     }
     if (kind === 'conversation') {
