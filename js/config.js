@@ -3,7 +3,7 @@
 
   window.English365Config = {
     appName: 'American English Trainer',
-    version: 'V1.1.0',
+    version: 'V1.1.2',
     defaultMode: 'sentence',
     defaultScene: 'daily-life',
     speechRates: [0.8, 1, 1.2, 1.5, 2],
@@ -19,6 +19,7 @@
       { id: 'conversation', label: 'Conversation Mode' },
       { id: 'listening', label: 'Listening Mode' },
       { id: 'listening-challenge', label: 'Listening Challenge Mode' },
+      { id: 'statistics', label: 'Learning Statistics' },
       { id: 'favorites', label: 'Favorites Mode' },
       { id: 'mistakes', label: 'Mistakes Mode' },
     ],

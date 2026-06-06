@@ -76,6 +76,8 @@ function createContext() {
       },
     },
     location: { protocol: 'file:', hostname: '' },
+    addEventListener() {},
+    removeEventListener() {},
   };
   context.window = context;
   context.self = context;
@@ -148,6 +150,7 @@ const uiModeFiles = [
   'js/ui/cards.js',
   'js/ui/buttons.js',
   'js/modes/listening-challenge-mode.js',
+  'js/modes/statistics-mode.js',
 ];
 
 const fullAppFiles = coreFiles.concat([
@@ -160,6 +163,7 @@ const fullAppFiles = coreFiles.concat([
   'js/modes/conversation-mode.js',
   'js/modes/listening-mode.js',
   'js/modes/listening-challenge-mode.js',
+  'js/modes/statistics-mode.js',
   'js/modes/favorites-mode.js',
   'js/modes/mistakes-mode.js',
   'app.js',
@@ -189,7 +193,7 @@ test('index.html loads every v2 corpus data pack before the corpus index', () =>
 });
 
 test('version is centralized and rendered in the footer', () => {
-  assertEqual(context.English365Config.version, 'V1.1.0', 'configured app version');
+  assertEqual(context.English365Config.version, 'V1.1.2', 'configured app version');
 
   const runtimeFiles = ['index.html', 'app.js', 'style.css', 'service-worker.js']
     .concat(walkFiles('js'))
@@ -197,7 +201,7 @@ test('version is centralized and rendered in the footer', () => {
     .concat(['manifest.json']);
   const versionOccurrences = [];
   for (const file of runtimeFiles) {
-    const matches = read(file).match(/V1.1.0/g) || [];
+    const matches = read(file).match(/V1.1.2/g) || [];
     for (let index = 0; index < matches.length; index += 1) {
       versionOccurrences.push(file);
     }
@@ -243,6 +247,14 @@ test('Listening Challenge Mode is registered in app entry points', () => {
   const html = read('index.html');
   assert(html.includes('src="js/modes/listening-challenge-mode.js"'), 'index.html loads listening challenge mode');
   assert(read('service-worker.js').includes('./js/modes/listening-challenge-mode.js'), 'service worker caches listening challenge mode');
+});
+
+test('Statistics Mode is registered in app entry points', () => {
+  const modeIds = context.English365Config.modes.map((mode) => mode.id);
+  assert(modeIds.includes('statistics'), 'config registers statistics mode');
+  const html = read('index.html');
+  assert(html.includes('src="js/modes/statistics-mode.js"'), 'index.html loads statistics mode');
+  assert(read('service-worker.js').includes('./js/modes/statistics-mode.js'), 'service worker caches statistics mode');
 });
 
 test('localStorage keys keep the confirmed v1 contract', () => {
@@ -312,10 +324,18 @@ test('Listening Challenge hides prompts until answer and can add mistakes', () =
   const sentence = store.getCurrentSentence();
   const renderer = challengeContext.English365Modes['listening-challenge'];
   const initialHtml = renderer.render(store, state);
-  assert(initialHtml.includes('Play'), 'challenge shows Play');
-  assert(initialHtml.includes('Replay'), 'challenge shows Replay');
+  assert(initialHtml.includes('▶ Play'), 'challenge starts with one Play button');
+  assert(!initialHtml.includes('>Replay<'), 'challenge does not render a separate Replay button');
+  assert(!initialHtml.includes('class="play-button"'), 'challenge does not use oversized circular play button');
+  assertEqual((initialHtml.match(/data-action="play-current"/g) || []).length, 1, 'challenge has one audio control');
   assert(initialHtml.includes('Show Answer'), 'challenge shows Show Answer');
   assert(initialHtml.includes('Next'), 'challenge shows Next');
+
+  store.markAudioPlayed();
+  state = store.getState();
+  const replayHtml = renderer.render(store, state);
+  assert(replayHtml.includes('↻ Replay'), 'same audio button becomes Replay after first play');
+  assertEqual((replayHtml.match(/data-action="play-current"/g) || []).length, 1, 'replay state still has one audio control');
   assert(!initialHtml.includes(challengeContext.English365UI.escapeHtml(sentence.cn)), 'initial challenge hides Chinese');
   for (const answer of sentence.answers) {
     assert(!initialHtml.includes(challengeContext.English365UI.escapeHtml(answer)), 'initial challenge hides English answer');
@@ -334,6 +354,50 @@ test('Listening Challenge hides prompts until answer and can add mistakes', () =
   const mistake = challengeContext.English365Storage.getMistakes()[challengeContext.English365Corpus.refKey(ref)];
   assert(mistake, 'Did not understand adds current sentence to mistakes');
   assertEqual(mistake.wrongCount, 1, 'challenge mistake wrong count');
+});
+
+test('learning time statistics round minutes and build a one-year heatmap', () => {
+  let stats = context.English365Storage.createDefaultStats();
+  assertEqual(stats.totalLearningMs, 0, 'default total learning ms');
+  assertEqual(Object.keys(stats.dailyLearningMs).length, 0, 'default daily learning ms');
+
+  stats = context.English365Stats.recordActiveTime(stats, 61000, new Date('2026-06-05T08:00:00Z'));
+  stats = context.English365Stats.recordActiveTime(stats, 1000, new Date('2026-06-05T08:02:00Z'));
+  stats = context.English365Stats.recordActiveTime(stats, 60000, new Date('2026-06-04T08:00:00Z'));
+
+  assertEqual(context.English365Stats.getTodayLearningMinutes(stats, new Date('2026-06-05T10:00:00Z')), 2, 'today learning minutes round up');
+  assertEqual(context.English365Stats.getTotalLearningMinutes(stats), 3, 'total learning minutes round up');
+
+  const heatmap = context.English365Stats.getLearningHeatmap(stats, new Date('2026-06-05T10:00:00Z'));
+  assertEqual(heatmap.length, 365, 'heatmap has 365 days');
+  assertEqual(heatmap[heatmap.length - 1].date, '2026-06-05', 'heatmap ends today');
+  assertEqual(heatmap[heatmap.length - 1].minutes, 2, 'heatmap today minutes');
+  assert(heatmap.some((day) => day.date === '2026-06-04' && day.minutes === 1), 'heatmap includes previous day minutes');
+});
+
+test('Statistics Mode renders summary cards and heatmap days', () => {
+  assert(fs.existsSync(path('js/modes/statistics-mode.js')), 'statistics mode file exists');
+  const statisticsContext = createContext();
+  loadScripts(statisticsContext, coreFiles.concat([
+    'js/ui/cards.js',
+    'js/ui/buttons.js',
+    'js/modes/statistics-mode.js',
+  ]));
+  const store = statisticsContext.English365Store.createStore();
+  let stats = store.getState().stats;
+  stats = statisticsContext.English365Stats.recordActiveTime(stats, 61000, new Date('2026-06-05T08:00:00Z'));
+  statisticsContext.English365Storage.saveStats(stats);
+  const updatedStore = statisticsContext.English365Store.createStore();
+  updatedStore.setMode('statistics');
+  const html = statisticsContext.English365Modes.statistics.render(updatedStore, updatedStore.getState());
+
+  assert(html.includes('Learning Statistics'), 'statistics page title');
+  assert(html.includes('Today&#39;s Learning Time'), 'today learning time card');
+  assert(html.includes('Total Learning Time'), 'total learning time card');
+  assert(html.includes('heatmap-grid'), 'heatmap grid rendered');
+  assert(html.includes('data-minutes="2"'), 'heatmap day includes exact minutes');
+  assert(html.includes('data-action="select-heatmap-day"'), 'heatmap day is clickable');
+  assert(html.includes('heatmap-day-detail'), 'heatmap day detail rendered');
 });
 
 test('Continue Learning saves lastMode, lastScene, and lastItemId', () => {

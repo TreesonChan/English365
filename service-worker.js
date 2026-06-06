@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'english365-cache-version-footer-2026-06-04';
+const CACHE_VERSION = 'english365-cache-v1-1-2-statistics-2026-06-05';
 const CACHE_ASSETS = [
   './',
   './index.html',
@@ -20,6 +20,7 @@ const CACHE_ASSETS = [
   './js/modes/conversation-mode.js',
   './js/modes/listening-mode.js',
   './js/modes/listening-challenge-mode.js',
+  './js/modes/statistics-mode.js',
   './js/modes/favorites-mode.js',
   './js/modes/mistakes-mode.js',
   './data/scenes.js',

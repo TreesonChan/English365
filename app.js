@@ -4,6 +4,7 @@
   var store;
   var root;
   var versionRoot;
+  var activeStartedAt = null;
 
   function canRegisterServiceWorker() {
     return window.location.protocol === 'https:' ||
@@ -23,6 +24,46 @@
     if (versionRoot) {
       versionRoot.textContent = window.English365Config.version;
     }
+  }
+
+  function isPageForeground() {
+    return document.visibilityState !== 'hidden' && (!document.hasFocus || document.hasFocus());
+  }
+
+  function startActiveTimer() {
+    if (activeStartedAt !== null || !store) {
+      return;
+    }
+    activeStartedAt = Date.now();
+  }
+
+  function stopActiveTimer() {
+    if (activeStartedAt === null || !store) {
+      return;
+    }
+    var endedAt = Date.now();
+    var elapsedMs = endedAt - activeStartedAt;
+    activeStartedAt = null;
+    if (elapsedMs > 0) {
+      store.recordActiveTime(elapsedMs, new Date(endedAt));
+    }
+  }
+
+  function syncActiveTimer() {
+    if (isPageForeground()) {
+      startActiveTimer();
+    } else {
+      stopActiveTimer();
+    }
+  }
+
+  function setupActiveTimeTracking() {
+    document.addEventListener('visibilitychange', syncActiveTimer);
+    window.addEventListener('focus', syncActiveTimer);
+    window.addEventListener('blur', stopActiveTimer);
+    window.addEventListener('pageshow', syncActiveTimer);
+    window.addEventListener('pagehide', stopActiveTimer);
+    syncActiveTimer();
   }
 
   function render() {
@@ -46,6 +87,9 @@
       text = window.English365Corpus.getPrimaryEnglishForSentence(store.getCurrentSentence());
     }
     window.English365TTS.speak(text, state.prefs.speechRate);
+    if (state.mode === 'listening-challenge') {
+      store.markAudioPlayed();
+    }
   }
 
   function refFromKey(key) {
@@ -77,6 +121,16 @@
     });
     var next = conversations[(index + 1 + conversations.length) % conversations.length];
     store.selectConversation(next.id);
+  }
+
+  function showHeatmapDayDetail(target) {
+    var detail = document.getElementById('heatmap-day-detail');
+    if (!detail) {
+      return;
+    }
+    var minutes = Number(target.dataset.minutes) || 0;
+    var unit = minutes === 1 ? 'minute' : 'minutes';
+    detail.textContent = target.dataset.date + ': ' + minutes + ' ' + unit;
   }
 
   function handleClick(event) {
@@ -120,6 +174,8 @@
       store.prevTurn();
     } else if (action === 'next-turn') {
       store.nextTurn();
+    } else if (action === 'select-heatmap-day') {
+      showHeatmapDayDetail(target);
     } else if (action === 'set-rate') {
       store.setSpeechRate(target.dataset.rate);
     } else if (action === 'practice-ref') {
@@ -144,6 +200,7 @@
     renderVersion();
     store = window.English365Store.createStore();
     window.English365AppStore = store;
+    setupActiveTimeTracking();
     root.addEventListener('click', handleClick);
     store.subscribe(render);
     render();

@@ -30,6 +30,8 @@
       mistakeCount: 0,
       streakDays: 0,
       lastStudyDate: null,
+      totalLearningMs: 0,
+      dailyLearningMs: {},
     };
   }
 

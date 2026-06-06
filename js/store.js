@@ -21,6 +21,7 @@
       answerVisible: false,
       transcriptVisible: false,
       chineseVisible: false,
+      audioPlayed: false,
       prefs: prefs,
       stats: storage.getStats(),
       favorites: storage.getFavorites(),
@@ -69,6 +70,7 @@
       state.answerVisible = false;
       state.transcriptVisible = false;
       state.chineseVisible = false;
+      state.audioPlayed = false;
     }
 
     function setMode(mode) {
@@ -299,8 +301,19 @@
       notify();
     }
 
+    function recordActiveTime(elapsedMs, date) {
+      state.stats = window.English365Stats.recordActiveTime(state.stats, elapsedMs, date);
+      saveStats();
+      notify();
+    }
+
     function showAnswer() {
       state.answerVisible = true;
+      notify();
+    }
+
+    function markAudioPlayed() {
+      state.audioPlayed = true;
       notify();
     }
 
@@ -343,7 +356,9 @@
       markWrong: markWrong,
       markCorrect: markCorrect,
       setSpeechRate: setSpeechRate,
+      recordActiveTime: recordActiveTime,
       showAnswer: showAnswer,
+      markAudioPlayed: markAudioPlayed,
       showTranscript: showTranscript,
       showChinese: showChinese,
     };
