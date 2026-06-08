@@ -3,6 +3,10 @@
 
   var modes = window.English365Modes || {};
 
+  function disabledAttr(enabled) {
+    return enabled ? '' : ' disabled aria-disabled="true"';
+  }
+
   function renderConversationChoices(state) {
     var ui = window.English365UI;
     return window.English365Corpus.getConversationsByScene(state.scene).map(function renderChoice(conversation) {
@@ -37,8 +41,8 @@
       window.English365UI.rateControl(state.prefs.speechRate),
       ui.primaryActions(),
       '<div class="nav-row">',
-      '<button class="secondary-button" type="button" data-action="prev-turn">Previous</button>',
-      '<button class="primary-button" type="button" data-action="next-turn">Next</button>',
+      '<button class="secondary-button" type="button" data-action="prev-turn"' + disabledAttr(store.canPrevTurn()) + '>Previous</button>',
+      '<button class="primary-button" type="button" data-action="next-turn"' + disabledAttr(store.canNextTurn()) + '>Next</button>',
       '</div>',
       '</section>',
     ].join('');

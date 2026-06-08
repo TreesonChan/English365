@@ -16,6 +16,7 @@
   ];
   data.sentences = data.sentences || [];
   data.conversations = data.conversations || [];
+  data.phrases = data.phrases || [];
 
   data.addSentences = function addSentences(scene, sentences) {
     sentences.forEach(function addScene(sentence) {
@@ -26,6 +27,12 @@
   data.addConversations = function addConversations(conversations) {
     conversations.forEach(function addConversation(conversation) {
       data.conversations.push(conversation);
+    });
+  };
+
+  data.addPhrases = function addPhrases(phrases) {
+    phrases.forEach(function addPhrase(phrase) {
+      data.phrases.push(phrase);
     });
   };
 

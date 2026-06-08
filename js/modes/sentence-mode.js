@@ -3,6 +3,10 @@
 
   var modes = window.English365Modes || {};
 
+  function disabledAttr(enabled) {
+    return enabled ? '' : ' disabled aria-disabled="true"';
+  }
+
   function render(store, state) {
     var ui = window.English365UI;
     var sentence = store.getCurrentSentence();
@@ -19,7 +23,10 @@
       state.answerVisible ? '<div class="answer-panel"><p class="eyebrow">American English</p>' + ui.answerList(sentence.answers) + '</div>' : '<button class="primary-button full" type="button" data-action="show-answer">Show Answer</button>',
       window.English365UI.rateControl(state.prefs.speechRate),
       ui.primaryActions(),
-      '<button class="primary-button full" type="button" data-action="next-sentence">Next</button>',
+      '<div class="nav-row">',
+      '<button class="secondary-button" type="button" data-action="prev-sentence"' + disabledAttr(store.canPrevSentence()) + '>Previous</button>',
+      '<button class="primary-button" type="button" data-action="next-sentence"' + disabledAttr(store.canNextSentence()) + '>Next</button>',
+      '</div>',
       '</section>',
     ].join('');
   }

@@ -457,3 +457,153 @@ button {
   line-height: 1.4;
   text-align: center;
 }
+
+.phrase-search-card {
+  border-radius: 14px;
+}
+
+.phrase-search-input {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 10px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+
+.phrase-search-input:focus {
+  outline: 2px solid rgba(10, 132, 255, 0.22);
+  border-color: var(--primary);
+}
+
+.phrase-search-results {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.phrase-search-results p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.phrase-result {
+  min-height: 58px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f8fbff;
+  color: var(--text);
+  text-align: left;
+}
+
+.phrase-result.is-active {
+  border-color: var(--primary);
+  background: #eef6ff;
+}
+
+.phrase-result span,
+.phrase-result small {
+  display: block;
+}
+
+.phrase-result span {
+  font-weight: 800;
+}
+
+.phrase-result small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.phrase-card,
+.phrase-build-card {
+  border-radius: 14px;
+}
+
+.phrase-card h3,
+.phrase-build-card h3 {
+  font-size: 28px;
+  line-height: 1.18;
+}
+
+.phrase-meaning-panel p {
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.phrase-coach-text {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.phrase-examples-panel {
+  border-radius: 14px;
+}
+
+.phrase-example-list {
+  padding-left: 20px;
+}
+
+.phrase-example-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.phrase-example-list span {
+  min-width: 0;
+}
+
+.phrase-example-play {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.favorite-group {
+  margin-top: 14px;
+}
+
+.favorite-group > h3 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
+.favorite-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+button:disabled,
+button[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.48;
+}
+
+.list-card.is-active {
+  border-color: var(--primary);
+  box-shadow: 0 12px 30px rgba(10, 132, 255, 0.16);
+}
+
+.list-nav {
+  margin: 0 0 14px;
+}
+
+.phrase-english-panel h3 {
+  margin: 8px 0 0;
+  font-size: 26px;
+  line-height: 1.2;
+}

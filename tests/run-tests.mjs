@@ -117,6 +117,7 @@ function test(name, fn) {
 const coreFiles = [
   'js/config.js',
   'data/scenes.js',
+  'data/phrases.js',
   'data/daily-life.js',
   'data/daily-life-v2.js',
   'data/hotel.js',
@@ -149,6 +150,7 @@ const coreFiles = [
 const uiModeFiles = [
   'js/ui/cards.js',
   'js/ui/buttons.js',
+  'js/modes/phrase-mode.js',
   'js/modes/listening-challenge-mode.js',
   'js/modes/statistics-mode.js',
 ];
@@ -162,6 +164,7 @@ const fullAppFiles = coreFiles.concat([
   'js/modes/sentence-mode.js',
   'js/modes/conversation-mode.js',
   'js/modes/listening-mode.js',
+  'js/modes/phrase-mode.js',
   'js/modes/listening-challenge-mode.js',
   'js/modes/statistics-mode.js',
   'js/modes/favorites-mode.js',
@@ -193,7 +196,7 @@ test('index.html loads every v2 corpus data pack before the corpus index', () =>
 });
 
 test('version is centralized and rendered in the footer', () => {
-  assertEqual(context.English365Config.version, 'V1.1.2', 'configured app version');
+  assertEqual(context.English365Config.version, 'V1.3.0', 'configured app version');
 
   const runtimeFiles = ['index.html', 'app.js', 'style.css', 'service-worker.js']
     .concat(walkFiles('js'))
@@ -201,7 +204,7 @@ test('version is centralized and rendered in the footer', () => {
     .concat(['manifest.json']);
   const versionOccurrences = [];
   for (const file of runtimeFiles) {
-    const matches = read(file).match(/V1.1.2/g) || [];
+    const matches = read(file).match(/V1.3.0/g) || [];
     for (let index = 0; index < matches.length; index += 1) {
       versionOccurrences.push(file);
     }
@@ -238,7 +241,7 @@ test('version is centralized and rendered in the footer', () => {
     body: { classList: { add() {}, remove() {}, toggle() {} }, appendChild() {} },
   };
   loadScripts(appContext, fullAppFiles);
-  assertEqual(versionRoot.textContent, appContext.English365Config.version, 'footer renders configured version');
+  assertEqual(versionRoot.textContent, 'Version ' + appContext.English365Config.version, 'footer renders configured version');
 });
 
 test('Listening Challenge Mode is registered in app entry points', () => {
@@ -257,6 +260,17 @@ test('Statistics Mode is registered in app entry points', () => {
   assert(read('service-worker.js').includes('./js/modes/statistics-mode.js'), 'service worker caches statistics mode');
 });
 
+test('Phrase Mode is registered in app entry points', () => {
+  const modeIds = context.English365Config.modes.map((mode) => mode.id);
+  assertEqual(modeIds[0], 'phrase', 'phrase mode is first');
+  assert(modeIds.includes('phrase'), 'config registers phrase mode');
+  const html = read('index.html');
+  assert(html.includes('src="data/phrases.js"'), 'index.html loads phrase data');
+  assert(html.includes('src="js/modes/phrase-mode.js"'), 'index.html loads phrase mode');
+  assert(read('service-worker.js').includes('./data/phrases.js'), 'service worker caches phrase data');
+  assert(read('service-worker.js').includes('./js/modes/phrase-mode.js'), 'service worker caches phrase mode');
+});
+
 test('localStorage keys keep the confirmed v1 contract', () => {
   const keys = context.English365Config.storageKeys;
   assertEqual(keys.favorites, 'e365:v1:favorites', 'favorites key');
@@ -271,10 +285,12 @@ test('corpus contains 10 scenes, 1000 sentences, and 100 conversations', () => {
   assertEqual(summary.sceneCount, 10, 'scene count');
   assertEqual(summary.sentenceCount, 1000, 'sentence count');
   assertEqual(summary.conversationCount, 100, 'conversation count');
+  assertEqual(summary.phraseCount, 100, 'phrase count');
   assertEqual(context.English365CorpusIndex.expected.sentencesPerScene, 100, 'expected sentences per scene');
   assertEqual(context.English365CorpusIndex.expected.conversationsPerScene, 10, 'expected conversations per scene');
   assertEqual(context.English365CorpusIndex.expected.sentenceCount, 1000, 'expected sentence count');
   assertEqual(context.English365CorpusIndex.expected.conversationCount, 100, 'expected conversation count');
+  assertEqual(context.English365CorpusIndex.expected.phraseCount, 100, 'expected phrase count');
   assertEqual(context.English365CorpusIndex.validateCorpus().length, 0, 'corpus validation errors');
 
   for (const scene of context.English365Data.scenes) {
@@ -305,6 +321,82 @@ test('corpus ids are unique and every training item has real text', () => {
       assert(turn.en || (Array.isArray(turn.answers) && turn.answers.length > 0), `${conversation.id} turn has English`);
     }
   }
+
+  const phraseIds = new Set();
+  for (const phrase of context.English365Data.phrases) {
+    assert(!phraseIds.has(phrase.id), 'duplicate phrase id ' + phrase.id);
+    phraseIds.add(phrase.id);
+    assert(phrase.phrase && phrase.phrase.length >= 2, phrase.id + ' has phrase text');
+    assert(phrase.meaning && phrase.meaning.length >= 2, phrase.id + ' has Chinese meaning');
+    assert(phrase.category, phrase.id + ' has category');
+    assert(Array.isArray(phrase.examples) && phrase.examples.length >= 3, phrase.id + ' has examples');
+  }
+});
+
+test('Phrase Mode renders Chinese-first recall, search, and phrase refs', () => {
+  assert(fs.existsSync(path('js/modes/phrase-mode.js')), 'phrase mode file exists');
+  const phraseContext = createContext();
+  loadScripts(phraseContext, coreFiles.concat([
+    'js/ui/cards.js',
+    'js/ui/buttons.js',
+    'js/modes/phrase-mode.js',
+    'js/modes/favorites-mode.js',
+    'js/modes/mistakes-mode.js',
+  ]));
+  const store = phraseContext.English365Store.createStore();
+  store.openMode('phrase');
+
+  let state = store.getState();
+  const renderer = phraseContext.English365Modes.phrase;
+  let html = renderer.render(store, state);
+  assertEqual(state.mode, 'phrase', 'phrase mode selected');
+  assert(html.includes('Phrase Mode'), 'phrase page title');
+  assert(html.includes('Search Phrase'), 'phrase search rendered');
+  assert(html.includes('Requests'), 'phrase category rendered');
+  assert(html.includes('我想要'), 'phrase meaning rendered');
+  assert(html.includes('Show Phrase'), 'show phrase button rendered');
+  assert(!html.includes('I&#39;d like to...'), 'English phrase hidden initially');
+  assert(!html.includes('Play Audio'), 'audio hidden initially');
+  assert(!html.includes('Build a Sentence'), 'build sentence hidden until phrase reveal');
+  assert(!html.includes('I&#39;d like to book a room.'), 'examples hidden initially');
+  assert(html.includes('data-action="prev-phrase" disabled'), 'previous is disabled at first phrase');
+
+  store.showAnswer();
+  html = renderer.render(store, store.getState());
+  assert(html.includes('I&#39;d like to...'), 'English phrase reveals after Show Phrase');
+  assert(html.includes('Play Audio'), 'audio appears after phrase reveal');
+  assert(html.includes('Build a Sentence'), 'build sentence appears after phrase reveal');
+  assert(html.includes('Show Examples'), 'examples have separate reveal button');
+  assert(!html.includes('I&#39;d like to book a room.'), 'examples still hidden after phrase reveal');
+
+  store.showExamples();
+  html = renderer.render(store, store.getState());
+  assert(html.includes('I&#39;d like to book a room.'), 'examples reveal after Show Examples');
+  assert(html.includes('data-action="play-phrase-example"'), 'example sentences are playable');
+
+  store.setPhraseSearchQuery("I'm looking");
+  assertEqual(store.getState().currentPhraseId, 'phrase-003', 'English search locates phrase');
+  store.setPhraseSearchQuery('我想要');
+  assertEqual(store.getState().currentPhraseId, 'phrase-001', 'Chinese search locates phrase');
+  store.setPhraseSearchQuery('你能不能');
+  assertEqual(store.getState().currentPhraseId, 'phrase-005', 'Chinese request search locates phrase');
+
+  const ref = store.currentRef();
+  store.toggleFavorite();
+  let favorites = phraseContext.English365Storage.getFavorites();
+  assert(favorites['phrase:phrase-005'], 'phrase favorite saved');
+  const favoritesHtml = phraseContext.English365Modes.favorites.render(store, store.getState());
+  assert(favoritesHtml.includes('Favorite Sentences'), 'favorites show sentence group');
+  assert(favoritesHtml.includes('Favorite Conversations'), 'favorites show conversation group');
+  assert(favoritesHtml.includes('Favorite Phrases'), 'favorites show phrase group');
+  assert(favoritesHtml.includes('Could you...?'), 'favorites render phrase text');
+
+  store.markWrong(ref);
+  const mistake = phraseContext.English365Storage.getMistakes()['phrase:phrase-005'];
+  assert(mistake, 'unknown phrase saved to mistakes');
+  assertEqual(store.getState().stats.totalLearned, 1, 'phrase unknown counts as learning activity');
+  const mistakesHtml = phraseContext.English365Modes.mistakes.render(store, store.getState());
+  assert(mistakesHtml.includes('Could you...?'), 'mistakes render phrase text');
 });
 
 test('Listening Challenge hides prompts until answer and can add mistakes', () => {
@@ -398,6 +490,86 @@ test('Statistics Mode renders summary cards and heatmap days', () => {
   assert(html.includes('data-minutes="2"'), 'heatmap day includes exact minutes');
   assert(html.includes('data-action="select-heatmap-day"'), 'heatmap day is clickable');
   assert(html.includes('heatmap-day-detail'), 'heatmap day detail rendered');
+});
+
+test('all learning modes expose consistent Previous and Next navigation', () => {
+  const navContext = createContext();
+  loadScripts(navContext, coreFiles.concat([
+    'js/ui/cards.js',
+    'js/ui/buttons.js',
+    'js/modes/phrase-mode.js',
+    'js/modes/sentence-mode.js',
+    'js/modes/conversation-mode.js',
+    'js/modes/listening-mode.js',
+    'js/modes/listening-challenge-mode.js',
+    'js/modes/favorites-mode.js',
+    'js/modes/mistakes-mode.js',
+  ]));
+  const store = navContext.English365Store.createStore();
+
+  store.setScene('hotel');
+  store.selectSentenceById('hotel-001');
+  store.setMode('sentence');
+  let html = navContext.English365Modes.sentence.render(store, store.getState());
+  assert(html.includes('data-action="prev-sentence" disabled'), 'sentence previous disabled at first item');
+  assert(html.includes('data-action="next-sentence"'), 'sentence next rendered');
+  store.nextSentence(false);
+  html = navContext.English365Modes.sentence.render(store, store.getState());
+  assert(!html.includes('data-action="prev-sentence" disabled'), 'sentence previous enabled after moving forward');
+
+  store.setMode('listening');
+  html = navContext.English365Modes.listening.render(store, store.getState());
+  assert(html.includes('data-action="prev-sentence"'), 'listening previous rendered');
+  assert(html.includes('data-action="next-sentence"'), 'listening next rendered');
+
+  store.selectSentenceById('hotel-001');
+  store.setMode('listening-challenge');
+  html = navContext.English365Modes['listening-challenge'].render(store, store.getState());
+  assert(html.includes('data-action="prev-sentence" disabled'), 'listening challenge previous disabled at first item');
+  assert(html.includes('data-action="next-sentence"'), 'listening challenge next rendered');
+
+  store.startConversation('hotel');
+  store.setMode('conversation');
+  html = navContext.English365Modes.conversation.render(store, store.getState());
+  assert(html.includes('data-action="prev-turn" disabled'), 'conversation previous disabled at first turn');
+  assert(html.includes('data-action="next-turn"'), 'conversation next rendered');
+  store.nextTurn();
+  html = navContext.English365Modes.conversation.render(store, store.getState());
+  assert(!html.includes('data-action="prev-turn" disabled'), 'conversation previous enabled after moving forward');
+
+  store.openMode('phrase');
+  html = navContext.English365Modes.phrase.render(store, store.getState());
+  assert(html.includes('data-action="prev-phrase" disabled'), 'phrase previous disabled at first phrase');
+  assert(html.includes('data-action="next-phrase"'), 'phrase next rendered');
+  store.nextPhrase();
+  html = navContext.English365Modes.phrase.render(store, store.getState());
+  assert(!html.includes('data-action="prev-phrase" disabled'), 'phrase previous enabled after moving forward');
+
+  store.toggleFavorite({ type: 'sentence', id: 'hotel-001', scene: 'hotel' });
+  store.toggleFavorite({ type: 'conversationTurn', conversationId: 'hotel-conv-001', id: 'hotel-conv-001:0', scene: 'hotel', turnIndex: 0 });
+  store.toggleFavorite({ type: 'phrase', id: 'phrase-001', scene: 'hotel' });
+  store.setMode('favorites');
+  html = navContext.English365Modes.favorites.render(store, store.getState());
+  assert(html.includes('Favorite Conversations'), 'favorites include conversation group');
+  assert(html.includes('data-action="prev-favorite" disabled'), 'favorites previous disabled at first item');
+  assert(html.includes('data-action="next-favorite"'), 'favorites next rendered');
+  store.nextFavorite();
+  html = navContext.English365Modes.favorites.render(store, store.getState());
+  assert(!html.includes('data-action="prev-favorite" disabled'), 'favorites previous enabled after moving forward');
+  const restoredFavorites = navContext.English365Store.createStore();
+  assertEqual(restoredFavorites.getState().currentFavoriteKey, store.getState().currentFavoriteKey, 'favorite cursor restores after refresh');
+
+  store.markWrong({ type: 'sentence', id: 'hotel-002', scene: 'hotel' });
+  store.markWrong({ type: 'phrase', id: 'phrase-002', scene: 'hotel' });
+  store.setMode('mistakes');
+  html = navContext.English365Modes.mistakes.render(store, store.getState());
+  assert(html.includes('data-action="prev-mistake" disabled'), 'mistakes previous disabled at first item');
+  assert(html.includes('data-action="next-mistake"'), 'mistakes next rendered');
+  store.nextMistake();
+  html = navContext.English365Modes.mistakes.render(store, store.getState());
+  assert(!html.includes('data-action="prev-mistake" disabled'), 'mistakes previous enabled after moving forward');
+  const restoredMistakes = navContext.English365Store.createStore();
+  assertEqual(restoredMistakes.getState().currentMistakeKey, store.getState().currentMistakeKey, 'mistake cursor restores after refresh');
 });
 
 test('Continue Learning saves lastMode, lastScene, and lastItemId', () => {

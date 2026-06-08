@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'english365-cache-v1-1-2-statistics-2026-06-05';
+const CACHE_VERSION = 'english365-cache-v1-3-0-phrase-2026-06-08';
 const CACHE_ASSETS = [
   './',
   './index.html',
@@ -16,6 +16,7 @@ const CACHE_ASSETS = [
   './js/ui/buttons.js',
   './js/ui/toast.js',
   './js/ui/home.js',
+  './js/modes/phrase-mode.js',
   './js/modes/sentence-mode.js',
   './js/modes/conversation-mode.js',
   './js/modes/listening-mode.js',
@@ -24,6 +25,7 @@ const CACHE_ASSETS = [
   './js/modes/favorites-mode.js',
   './js/modes/mistakes-mode.js',
   './data/scenes.js',
+  './data/phrases.js',
   './data/daily-life.js',
   './data/daily-life-v2.js',
   './data/hotel.js',

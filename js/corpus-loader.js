@@ -25,6 +25,12 @@
     }) || null;
   }
 
+  function getSentenceIndex(sceneId, currentId) {
+    return getSentencesByScene(sceneId).findIndex(function findIndex(sentence) {
+      return sentence.id === currentId;
+    });
+  }
+
   function getConversationsByScene(sceneId) {
     return data.conversations.filter(function filterConversation(conversation) {
       return conversation.scene === sceneId;
@@ -37,15 +43,61 @@
     }) || null;
   }
 
+  function getConversationIndex(sceneId, currentId) {
+    return getConversationsByScene(sceneId).findIndex(function findIndex(conversation) {
+      return conversation.id === currentId;
+    });
+  }
+
+  function getPhrases() {
+    return data.phrases.slice();
+  }
+
+  function getPhraseById(id) {
+    return data.phrases.find(function findPhrase(phrase) {
+      return phrase.id === id;
+    }) || null;
+  }
+
+  function getPhraseIndex(currentId) {
+    return data.phrases.findIndex(function findIndex(phrase) {
+      return phrase.id === currentId;
+    });
+  }
+
+  function getNextPhrase(currentId) {
+    var phrases = getPhrases();
+    var index = getPhraseIndex(currentId);
+    return index >= 0 && index < phrases.length - 1 ? phrases[index + 1] : null;
+  }
+
+  function getPrevPhrase(currentId) {
+    var phrases = getPhrases();
+    var index = getPhraseIndex(currentId);
+    return index > 0 ? phrases[index - 1] : null;
+  }
+
+  function searchPhrases(query) {
+    var normalized = String(query || '').trim().toLowerCase();
+    if (!normalized) {
+      return [];
+    }
+    return data.phrases.filter(function filterPhrase(phrase) {
+      return phrase.phrase.toLowerCase().indexOf(normalized) !== -1 ||
+        phrase.meaning.toLowerCase().indexOf(normalized) !== -1;
+    });
+  }
+
   function getNextSentence(sceneId, currentId) {
     var sentences = getSentencesByScene(sceneId);
-    if (sentences.length === 0) {
-      return null;
-    }
-    var index = sentences.findIndex(function findIndex(sentence) {
-      return sentence.id === currentId;
-    });
-    return sentences[(index + 1 + sentences.length) % sentences.length];
+    var index = getSentenceIndex(sceneId, currentId);
+    return index >= 0 && index < sentences.length - 1 ? sentences[index + 1] : null;
+  }
+
+  function getPrevSentence(sceneId, currentId) {
+    var sentences = getSentencesByScene(sceneId);
+    var index = getSentenceIndex(sceneId, currentId);
+    return index > 0 ? sentences[index - 1] : null;
   }
 
   function getRandomSentence(sceneId, excludeId) {
@@ -60,6 +112,10 @@
 
   function getPrimaryEnglishForSentence(sentence) {
     return sentence && sentence.answers && sentence.answers[0] ? sentence.answers[0] : '';
+  }
+
+  function getPrimaryEnglishForPhrase(phrase) {
+    return phrase ? phrase.phrase : '';
   }
 
   function getTurnEnglish(turn) {
@@ -89,6 +145,9 @@
     if (ref.type === 'sentence') {
       return getSentenceById(ref.id);
     }
+    if (ref.type === 'phrase') {
+      return getPhraseById(ref.id);
+    }
     if (ref.type === 'conversationTurn') {
       var conversation = getConversationById(ref.conversationId);
       if (!conversation) {
@@ -104,11 +163,21 @@
     getScene: getScene,
     getSentencesByScene: getSentencesByScene,
     getSentenceById: getSentenceById,
+    getSentenceIndex: getSentenceIndex,
     getConversationsByScene: getConversationsByScene,
     getConversationById: getConversationById,
+    getConversationIndex: getConversationIndex,
+    getPhrases: getPhrases,
+    getPhraseById: getPhraseById,
+    getPhraseIndex: getPhraseIndex,
+    getNextPhrase: getNextPhrase,
+    getPrevPhrase: getPrevPhrase,
+    searchPhrases: searchPhrases,
     getNextSentence: getNextSentence,
+    getPrevSentence: getPrevSentence,
     getRandomSentence: getRandomSentence,
     getPrimaryEnglishForSentence: getPrimaryEnglishForSentence,
+    getPrimaryEnglishForPhrase: getPrimaryEnglishForPhrase,
     getTurnEnglish: getTurnEnglish,
     refKey: refKey,
     resolveRef: resolveRef,

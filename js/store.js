@@ -9,16 +9,22 @@
     var prefs = storage.getPrefs();
     var initialScene = recent.lastScene || prefs.lastScene || config.defaultScene;
     var initialMode = recent.lastMode || prefs.lastMode || config.defaultMode;
-    var firstSentence = corpus.getSentenceById(recent.lastItemId) || corpus.getSentencesByScene(initialScene)[0];
+    var firstSentence = corpus.getSentenceById(recent.lastMode !== 'phrase' ? recent.lastItemId : null) || corpus.getSentencesByScene(initialScene)[0];
+    var firstPhrase = corpus.getPhraseById(recent.lastMode === 'phrase' ? recent.lastItemId : null) || corpus.getPhrases()[0];
     var listeners = [];
     var state = {
       screen: 'home',
       mode: initialMode,
       scene: initialScene,
       currentItemId: firstSentence ? firstSentence.id : null,
+      currentPhraseId: firstPhrase ? firstPhrase.id : null,
       currentConversationId: null,
       currentTurnIndex: 0,
+      currentFavoriteKey: recent.lastMode === 'favorites' ? recent.lastItemId : null,
+      currentMistakeKey: recent.lastMode === 'mistakes' ? recent.lastItemId : null,
+      phraseSearchQuery: '',
       answerVisible: false,
+      examplesVisible: false,
       transcriptVisible: false,
       chineseVisible: false,
       audioPlayed: false,
@@ -29,6 +35,8 @@
     };
 
     state.stats = window.English365Stats.syncDerivedCounts(state.stats, state.favorites, state.mistakes);
+    ensureCollectionCursor('favorites');
+    ensureCollectionCursor('mistakes');
 
     function notify() {
       listeners.forEach(function notifyListener(listener) {
@@ -45,6 +53,50 @@
       });
     }
 
+    function collectionFor(kind) {
+      return kind === 'favorites' ? state.favorites : state.mistakes;
+    }
+
+    function cursorNameFor(kind) {
+      return kind === 'favorites' ? 'currentFavoriteKey' : 'currentMistakeKey';
+    }
+
+    function collectionKeys(kind) {
+      return Object.keys(collectionFor(kind));
+    }
+
+    function ensureCollectionCursor(kind) {
+      var keys = collectionKeys(kind);
+      var cursorName = cursorNameFor(kind);
+      if (!keys.length) {
+        state[cursorName] = null;
+        return;
+      }
+      if (!state[cursorName] || keys.indexOf(state[cursorName]) === -1) {
+        state[cursorName] = keys[0];
+      }
+    }
+
+    function collectionIndex(kind) {
+      ensureCollectionCursor(kind);
+      return collectionKeys(kind).indexOf(state[cursorNameFor(kind)]);
+    }
+
+    function moveCollectionCursor(kind, delta) {
+      var keys = collectionKeys(kind);
+      var cursorName = cursorNameFor(kind);
+      if (!keys.length) {
+        state[cursorName] = null;
+        notify();
+        return;
+      }
+      var index = collectionIndex(kind);
+      var nextIndex = Math.min(Math.max(index + delta, 0), keys.length - 1);
+      state[cursorName] = keys[nextIndex];
+      saveRecent(state[cursorName]);
+      notify();
+    }
+
     function savePrefs() {
       storage.savePrefs(state.prefs);
     }
@@ -54,11 +106,37 @@
       storage.saveStats(state.stats);
     }
 
+    function currentRecentItemId() {
+      if (state.mode === 'conversation') {
+        return state.currentConversationId;
+      }
+      if (state.mode === 'phrase') {
+        return state.currentPhraseId;
+      }
+      if (state.mode === 'favorites') {
+        return state.currentFavoriteKey;
+      }
+      if (state.mode === 'mistakes') {
+        return state.currentMistakeKey;
+      }
+      return state.currentItemId;
+    }
+
+    function itemIdFromRef(ref) {
+      if (!ref) {
+        return null;
+      }
+      if (ref.type === 'conversationTurn') {
+        return ref.conversationId;
+      }
+      return ref.id;
+    }
+
     function saveRecent(itemId) {
       var nextRecent = {
         lastMode: state.mode,
         lastScene: state.scene,
-        lastItemId: itemId || state.currentItemId,
+        lastItemId: itemId || currentRecentItemId(),
       };
       storage.saveRecent(nextRecent);
       state.prefs.lastMode = state.mode;
@@ -68,6 +146,7 @@
 
     function resetVisibility() {
       state.answerVisible = false;
+      state.examplesVisible = false;
       state.transcriptVisible = false;
       state.chineseVisible = false;
       state.audioPlayed = false;
@@ -76,6 +155,12 @@
     function setMode(mode) {
       state.mode = mode;
       state.screen = 'mode';
+      if (mode === 'favorites') {
+        ensureCollectionCursor('favorites');
+      }
+      if (mode === 'mistakes') {
+        ensureCollectionCursor('mistakes');
+      }
       resetVisibility();
       saveRecent();
       notify();
@@ -113,6 +198,16 @@
       if (mode === 'listening-challenge') {
         selectRandomSentenceForCurrentScene();
       }
+      if (mode === 'phrase' && !state.currentPhraseId) {
+        var phrase = corpus.getPhrases()[0];
+        state.currentPhraseId = phrase ? phrase.id : null;
+      }
+      if (mode === 'favorites') {
+        ensureCollectionCursor('favorites');
+      }
+      if (mode === 'mistakes') {
+        ensureCollectionCursor('mistakes');
+      }
       setMode(mode);
     }
 
@@ -127,10 +222,18 @@
       if (saved.lastItemId) {
         if (saved.lastMode === 'conversation') {
           state.currentConversationId = saved.lastItemId;
+        } else if (saved.lastMode === 'phrase') {
+          state.currentPhraseId = saved.lastItemId;
+        } else if (saved.lastMode === 'favorites') {
+          state.currentFavoriteKey = saved.lastItemId;
+        } else if (saved.lastMode === 'mistakes') {
+          state.currentMistakeKey = saved.lastItemId;
         } else {
           state.currentItemId = saved.lastItemId;
         }
       }
+      ensureCollectionCursor('favorites');
+      ensureCollectionCursor('mistakes');
       state.screen = 'mode';
       resetVisibility();
       notify();
@@ -156,6 +259,81 @@
       state.currentItemId = sentence.id;
       resetVisibility();
       saveRecent(sentence.id);
+      notify();
+    }
+
+    function prevSentence() {
+      var sentence = corpus.getPrevSentence(state.scene, state.currentItemId);
+      if (!sentence) {
+        return;
+      }
+      state.currentItemId = sentence.id;
+      resetVisibility();
+      saveRecent(sentence.id);
+      notify();
+    }
+
+    function canPrevSentence() {
+      return corpus.getSentenceIndex(state.scene, state.currentItemId) > 0;
+    }
+
+    function canNextSentence() {
+      var sentences = corpus.getSentencesByScene(state.scene);
+      var index = corpus.getSentenceIndex(state.scene, state.currentItemId);
+      return index >= 0 && index < sentences.length - 1;
+    }
+
+    function selectPhraseById(id) {
+      var phrase = corpus.getPhraseById(id);
+      if (!phrase) {
+        return;
+      }
+      state.currentPhraseId = phrase.id;
+      resetVisibility();
+      saveRecent(phrase.id);
+      notify();
+    }
+
+    function nextPhrase() {
+      var phrase = corpus.getNextPhrase(state.currentPhraseId);
+      if (!phrase) {
+        return;
+      }
+      state.currentPhraseId = phrase.id;
+      resetVisibility();
+      saveRecent(phrase.id);
+      notify();
+    }
+
+    function prevPhrase() {
+      var phrase = corpus.getPrevPhrase(state.currentPhraseId);
+      if (!phrase) {
+        return;
+      }
+      state.currentPhraseId = phrase.id;
+      resetVisibility();
+      saveRecent(phrase.id);
+      notify();
+    }
+
+    function canPrevPhrase() {
+      return corpus.getPhraseIndex(state.currentPhraseId) > 0;
+    }
+
+    function canNextPhrase() {
+      var phrases = corpus.getPhrases();
+      var index = corpus.getPhraseIndex(state.currentPhraseId);
+      return index >= 0 && index < phrases.length - 1;
+    }
+
+    function setPhraseSearchQuery(query) {
+      state.phraseSearchQuery = String(query || '');
+      var matches = corpus.searchPhrases(state.phraseSearchQuery);
+      if (matches.length) {
+        state.currentPhraseId = matches[0].id;
+      }
+      resetVisibility();
+      saveRecent(state.currentPhraseId);
       notify();
     }
 
@@ -189,24 +367,40 @@
 
     function nextTurn() {
       var conversation = corpus.getConversationById(state.currentConversationId);
-      if (!conversation) {
+      if (!conversation || state.currentTurnIndex >= conversation.turns.length - 1) {
         return;
       }
-      state.currentTurnIndex = Math.min(state.currentTurnIndex + 1, conversation.turns.length - 1);
+      state.currentTurnIndex += 1;
       resetVisibility();
       saveRecent(conversation.id);
       notify();
     }
 
     function prevTurn() {
-      state.currentTurnIndex = Math.max(state.currentTurnIndex - 1, 0);
+      if (state.currentTurnIndex <= 0) {
+        return;
+      }
+      state.currentTurnIndex -= 1;
       resetVisibility();
       saveRecent(state.currentConversationId);
       notify();
     }
 
+    function canPrevTurn() {
+      return state.currentTurnIndex > 0;
+    }
+
+    function canNextTurn() {
+      var conversation = corpus.getConversationById(state.currentConversationId);
+      return !!conversation && state.currentTurnIndex < conversation.turns.length - 1;
+    }
+
     function getCurrentSentence() {
       return corpus.getSentenceById(state.currentItemId) || corpus.getSentencesByScene(state.scene)[0] || null;
+    }
+
+    function getCurrentPhrase() {
+      return corpus.getPhraseById(state.currentPhraseId) || corpus.getPhrases()[0] || null;
     }
 
     function getCurrentConversation() {
@@ -219,6 +413,14 @@
     }
 
     function currentRef() {
+      if (state.mode === 'favorites') {
+        ensureCollectionCursor('favorites');
+        return state.favorites[state.currentFavoriteKey] || null;
+      }
+      if (state.mode === 'mistakes') {
+        ensureCollectionCursor('mistakes');
+        return state.mistakes[state.currentMistakeKey] || null;
+      }
       if (state.mode === 'conversation') {
         var conversation = getCurrentConversation();
         return conversation ? {
@@ -228,6 +430,10 @@
           scene: conversation.scene,
           turnIndex: state.currentTurnIndex,
         } : null;
+      }
+      if (state.mode === 'phrase') {
+        var phrase = getCurrentPhrase();
+        return phrase ? { type: 'phrase', id: phrase.id, scene: state.scene } : null;
       }
       var sentence = getCurrentSentence();
       return sentence ? { type: 'sentence', id: sentence.id, scene: sentence.scene } : null;
@@ -241,10 +447,12 @@
       }
       if (state.favorites[key]) {
         delete state.favorites[key];
+        ensureCollectionCursor('favorites');
       } else {
         state.favorites[key] = Object.assign({}, target, {
           addedAt: window.English365Stats.toDateString(),
         });
+        state.currentFavoriteKey = state.currentFavoriteKey || key;
       }
       storage.saveFavorites(state.favorites);
       saveStats();
@@ -264,10 +472,11 @@
       existing.wrongCount += 1;
       existing.updatedAt = window.English365Stats.toDateString();
       state.mistakes[key] = existing;
+      state.currentMistakeKey = state.currentMistakeKey || key;
       storage.saveMistakes(state.mistakes);
       state.stats = window.English365Stats.recordCompletion(state.stats, state.mode);
       saveStats();
-      saveRecent(target.type === 'sentence' ? target.id : target.conversationId);
+      saveRecent(itemIdFromRef(target));
       notify();
     }
 
@@ -282,12 +491,13 @@
         state.mistakes[key].updatedAt = window.English365Stats.toDateString();
         if (state.mistakes[key].correctCount >= 3) {
           delete state.mistakes[key];
+          ensureCollectionCursor('mistakes');
         }
         storage.saveMistakes(state.mistakes);
       }
       state.stats = window.English365Stats.recordCompletion(state.stats, state.mode);
       saveStats();
-      saveRecent(target.type === 'sentence' ? target.id : target.conversationId);
+      saveRecent(itemIdFromRef(target));
       notify();
     }
 
@@ -309,6 +519,11 @@
 
     function showAnswer() {
       state.answerVisible = true;
+      notify();
+    }
+
+    function showExamples() {
+      state.examplesVisible = true;
       notify();
     }
 
@@ -344,11 +559,31 @@
       setScene: setScene,
       selectSentenceById: selectSentenceById,
       nextSentence: nextSentence,
+      prevSentence: prevSentence,
+      canPrevSentence: canPrevSentence,
+      canNextSentence: canNextSentence,
+      selectPhraseById: selectPhraseById,
+      nextPhrase: nextPhrase,
+      prevPhrase: prevPhrase,
+      canPrevPhrase: canPrevPhrase,
+      canNextPhrase: canNextPhrase,
+      setPhraseSearchQuery: setPhraseSearchQuery,
       startConversation: startConversation,
       selectConversation: selectConversation,
       nextTurn: nextTurn,
       prevTurn: prevTurn,
+      canPrevTurn: canPrevTurn,
+      canNextTurn: canNextTurn,
+      prevFavorite: function prevFavorite() { moveCollectionCursor('favorites', -1); },
+      nextFavorite: function nextFavorite() { moveCollectionCursor('favorites', 1); },
+      canPrevFavorite: function canPrevFavorite() { return collectionIndex('favorites') > 0; },
+      canNextFavorite: function canNextFavorite() { var keys = collectionKeys('favorites'); var index = collectionIndex('favorites'); return index >= 0 && index < keys.length - 1; },
+      prevMistake: function prevMistake() { moveCollectionCursor('mistakes', -1); },
+      nextMistake: function nextMistake() { moveCollectionCursor('mistakes', 1); },
+      canPrevMistake: function canPrevMistake() { return collectionIndex('mistakes') > 0; },
+      canNextMistake: function canNextMistake() { var keys = collectionKeys('mistakes'); var index = collectionIndex('mistakes'); return index >= 0 && index < keys.length - 1; },
       getCurrentSentence: getCurrentSentence,
+      getCurrentPhrase: getCurrentPhrase,
       getCurrentConversation: getCurrentConversation,
       getCurrentTurn: getCurrentTurn,
       currentRef: currentRef,
@@ -358,6 +593,7 @@
       setSpeechRate: setSpeechRate,
       recordActiveTime: recordActiveTime,
       showAnswer: showAnswer,
+      showExamples: showExamples,
       markAudioPlayed: markAudioPlayed,
       showTranscript: showTranscript,
       showChinese: showChinese,

@@ -8,6 +8,7 @@
     conversationsPerScene: 10,
     sentenceCount: 1000,
     conversationCount: 100,
+    phraseCount: 100,
   };
 
   function countByScene(items) {
@@ -17,13 +18,22 @@
     }, {});
   }
 
+  function countByCategory(items) {
+    return items.reduce(function reduceCounts(counts, item) {
+      counts[item.category] = (counts[item.category] || 0) + 1;
+      return counts;
+    }, {});
+  }
+
   function getSummary() {
     return {
       sceneCount: data.scenes.length,
       sentenceCount: data.sentences.length,
       conversationCount: data.conversations.length,
+      phraseCount: data.phrases.length,
       sentencesByScene: countByScene(data.sentences),
       conversationsByScene: countByScene(data.conversations),
+      phrasesByCategory: countByCategory(data.phrases),
     };
   }
 
@@ -32,6 +42,7 @@
     var errors = [];
     var sentenceIds = {};
     var conversationIds = {};
+    var phraseIds = {};
 
     if (summary.sceneCount !== expected.sceneCount) {
       errors.push('Expected ' + expected.sceneCount + ' scenes, found ' + summary.sceneCount + '.');
@@ -41,6 +52,9 @@
     }
     if (summary.conversationCount !== expected.conversationCount) {
       errors.push('Expected ' + expected.conversationCount + ' conversations, found ' + summary.conversationCount + '.');
+    }
+    if (summary.phraseCount !== expected.phraseCount) {
+      errors.push('Expected ' + expected.phraseCount + ' phrases, found ' + summary.phraseCount + '.');
     }
 
     data.scenes.forEach(function checkScene(scene) {
@@ -69,6 +83,16 @@
       conversationIds[conversation.id] = true;
       if (!conversation.scene || !Array.isArray(conversation.turns) || conversation.turns.length === 0) {
         errors.push('Invalid conversation: ' + conversation.id);
+      }
+    });
+
+    data.phrases.forEach(function checkPhrase(phrase) {
+      if (phraseIds[phrase.id]) {
+        errors.push('Duplicate phrase id: ' + phrase.id);
+      }
+      phraseIds[phrase.id] = true;
+      if (!phrase.id || !phrase.phrase || !phrase.meaning || !phrase.category || !Array.isArray(phrase.examples) || phrase.examples.length === 0) {
+        errors.push('Invalid phrase: ' + phrase.id);
       }
     });
 

@@ -3,8 +3,8 @@
 
   window.English365Config = {
     appName: 'American English Trainer',
-    version: 'V1.1.2',
-    defaultMode: 'sentence',
+    version: 'V1.3.0',
+    defaultMode: 'phrase',
     defaultScene: 'daily-life',
     speechRates: [0.8, 1, 1.2, 1.5, 2],
     storageKeys: {
@@ -15,6 +15,7 @@
       prefs: 'e365:v1:prefs',
     },
     modes: [
+      { id: 'phrase', label: 'Phrase Mode' },
       { id: 'sentence', label: 'Sentence Mode' },
       { id: 'conversation', label: 'Conversation Mode' },
       { id: 'listening', label: 'Listening Mode' },
