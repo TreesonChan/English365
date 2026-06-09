@@ -13,6 +13,10 @@
     }) || data.scenes[0];
   }
 
+  function getSentences() {
+    return data.sentences.slice();
+  }
+
   function getSentencesByScene(sceneId) {
     return data.sentences.filter(function filterSentence(sentence) {
       return sentence.scene === sceneId;
@@ -25,10 +29,20 @@
     }) || null;
   }
 
-  function getSentenceIndex(sceneId, currentId) {
+  function getSentenceIndex(currentId) {
+    return data.sentences.findIndex(function findIndex(sentence) {
+      return sentence.id === currentId;
+    });
+  }
+
+  function getSentencesBySceneIndex(sceneId, currentId) {
     return getSentencesByScene(sceneId).findIndex(function findIndex(sentence) {
       return sentence.id === currentId;
     });
+  }
+
+  function getConversations() {
+    return data.conversations.slice();
   }
 
   function getConversationsByScene(sceneId) {
@@ -43,8 +57,8 @@
     }) || null;
   }
 
-  function getConversationIndex(sceneId, currentId) {
-    return getConversationsByScene(sceneId).findIndex(function findIndex(conversation) {
+  function getConversationIndex(currentId) {
+    return data.conversations.findIndex(function findIndex(conversation) {
       return conversation.id === currentId;
     });
   }
@@ -88,15 +102,17 @@
     });
   }
 
-  function getNextSentence(sceneId, currentId) {
-    var sentences = getSentencesByScene(sceneId);
-    var index = getSentenceIndex(sceneId, currentId);
+  function getNextSentence(sceneOrId, maybeCurrentId) {
+    var currentId = maybeCurrentId || sceneOrId;
+    var sentences = getSentences();
+    var index = getSentenceIndex(currentId);
     return index >= 0 && index < sentences.length - 1 ? sentences[index + 1] : null;
   }
 
-  function getPrevSentence(sceneId, currentId) {
-    var sentences = getSentencesByScene(sceneId);
-    var index = getSentenceIndex(sceneId, currentId);
+  function getPrevSentence(sceneOrId, maybeCurrentId) {
+    var currentId = maybeCurrentId || sceneOrId;
+    var sentences = getSentences();
+    var index = getSentenceIndex(currentId);
     return index > 0 ? sentences[index - 1] : null;
   }
 
@@ -161,9 +177,12 @@
   window.English365Corpus = {
     getScenes: getScenes,
     getScene: getScene,
+    getSentences: getSentences,
     getSentencesByScene: getSentencesByScene,
     getSentenceById: getSentenceById,
     getSentenceIndex: getSentenceIndex,
+    getSentencesBySceneIndex: getSentencesBySceneIndex,
+    getConversations: getConversations,
     getConversationsByScene: getConversationsByScene,
     getConversationById: getConversationById,
     getConversationIndex: getConversationIndex,

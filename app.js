@@ -78,10 +78,35 @@
     root.innerHTML = html;
   }
 
+  function englishForRef(ref) {
+    var item = window.English365Corpus.resolveRef(ref);
+    if (!item) {
+      return ref && ref.en ? ref.en : '';
+    }
+    if (ref.type === 'phrase') {
+      return item.phrase;
+    }
+    if (ref.type === 'conversationTurn') {
+      return window.English365Corpus.getTurnEnglish(item);
+    }
+    return window.English365Corpus.getPrimaryEnglishForSentence(item);
+  }
+
+  function phraseForCurrentContext() {
+    var state = store.getState();
+    var ref = state.mode === 'mistakes' ? store.currentRef() : null;
+    if (ref && ref.type === 'phrase') {
+      return window.English365Corpus.resolveRef(ref);
+    }
+    return store.getCurrentPhrase();
+  }
+
   function speakCurrent() {
     var state = store.getState();
     var text = '';
-    if (state.mode === 'conversation') {
+    if (state.mode === 'mistakes' || state.mode === 'favorites') {
+      text = englishForRef(store.currentRef());
+    } else if (state.mode === 'conversation') {
       text = window.English365Corpus.getTurnEnglish(store.getCurrentTurn());
     } else if (state.mode === 'phrase') {
       text = window.English365Corpus.getPrimaryEnglishForPhrase(store.getCurrentPhrase());
@@ -96,7 +121,7 @@
 
   function speakPhraseExample(target) {
     var state = store.getState();
-    var phrase = store.getCurrentPhrase();
+    var phrase = phraseForCurrentContext();
     var index = Number(target.dataset.exampleIndex);
     var text = phrase && phrase.examples ? phrase.examples[index] : '';
     if (text) {
@@ -114,14 +139,14 @@
       return;
     }
     if (ref.type === 'conversationTurn') {
-      store.selectConversation(ref.conversationId);
       store.setMode('conversation');
+      store.selectConversation(ref.conversationId);
     } else if (ref.type === 'phrase') {
-      store.selectPhraseById(ref.id);
       store.setMode('phrase');
+      store.selectPhraseById(ref.id);
     } else {
-      store.selectSentenceById(ref.id);
       store.setMode('sentence');
+      store.selectSentenceById(ref.id);
     }
   }
 
@@ -169,6 +194,12 @@
       store.selectConversation(target.dataset.conversationId);
     } else if (action === 'next-conversation') {
       selectNextConversation();
+    } else if (action === 'open-jump') {
+      store.openJumpDialog();
+    } else if (action === 'close-jump') {
+      store.closeJumpDialog();
+    } else if (action === 'submit-jump') {
+      store.jumpToCurrentMode();
     } else if (action === 'show-phrase') {
       store.showAnswer();
     } else if (action === 'show-examples') {
@@ -229,10 +260,14 @@
 
   function handleInput(event) {
     var target = event.target;
-    if (!target || target.dataset.action !== 'search-phrases') {
+    if (!target || !target.dataset.action) {
       return;
     }
-    store.setPhraseSearchQuery(target.value);
+    if (target.dataset.action === 'search-phrases') {
+      store.setPhraseSearchQuery(target.value);
+    } else if (target.dataset.action === 'jump-to-input') {
+      store.setJumpValue(target.value);
+    }
   }
 
   function init() {

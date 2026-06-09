@@ -94,6 +94,7 @@
     return [
       '<div class="nav-row list-nav">',
       '<button class="secondary-button" type="button" data-action="prev-favorite"' + disabledAttr(store.canPrevFavorite()) + '>Previous</button>',
+      '<button class="secondary-button" type="button" data-action="open-jump">Jump To</button>',
       '<button class="primary-button" type="button" data-action="next-favorite"' + disabledAttr(store.canNextFavorite()) + '>Next</button>',
       '</div>',
     ].join('');
@@ -101,6 +102,7 @@
 
   function render(store, state) {
     var ui = window.English365UI;
+    var progress = store.getFavoriteProgress();
     var keys = Object.keys(state.favorites);
     var phraseKeys = keys.filter(function isPhrase(key) {
       return state.favorites[key].type === 'phrase';
@@ -120,7 +122,9 @@
 
     return [
       ui.backBar('Favorites Mode', state.scene),
+      keys.length ? ui.progressIndicator(progress.label, progress.current, progress.total) : '',
       list,
+      keys.length && state.jumpDialogOpen ? ui.jumpDialog(state.jumpValue, progress.total) : '',
     ].join('');
   }
 

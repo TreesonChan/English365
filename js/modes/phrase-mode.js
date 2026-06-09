@@ -37,7 +37,7 @@
 
   function renderExamples(ui, phrase) {
     return [
-      '<div class="answer-panel phrase-examples-panel">',
+      '<div class="answer-panel answer-reveal-card phrase-examples-panel">',
       '<p class="eyebrow">Examples</p>',
       '<ol class="answer-list phrase-example-list">',
       phrase.examples.map(function renderExample(example, index) {
@@ -58,7 +58,7 @@
       return '<button class="primary-button full" type="button" data-action="show-phrase">Show Phrase</button>';
     }
     return [
-      '<div class="answer-panel phrase-english-panel">',
+      '<div class="answer-panel answer-reveal-card phrase-english-panel">',
       '<p class="eyebrow">English Phrase</p>',
       '<h3>' + ui.escapeHtml(phrase.phrase) + '</h3>',
       '</div>',
@@ -72,7 +72,7 @@
       return '';
     }
     return [
-      '<section class="practice-card phrase-build-card">',
+      '<section class="practice-card phrase-build-card secondary-learning-card">',
       '<p class="eyebrow">Build a Sentence</p>',
       '<h3>' + ui.escapeHtml(buildPrompt(phrase.phrase)) + '</h3>',
       '<p class="phrase-coach-text">Think of a complete sentence before checking examples.</p>',
@@ -84,32 +84,36 @@
   function render(store, state) {
     var ui = window.English365UI;
     var phrase = store.getCurrentPhrase();
+    var progress = store.getPhraseProgress();
     if (!phrase) {
       return ui.backBar('Phrase Mode', state.scene) + '<section class="practice-card"><p>No phrases available.</p></section>';
     }
 
     return [
       ui.backBar('Phrase Mode', state.scene),
+      ui.progressIndicator(progress.label, progress.current, progress.total),
       '<section class="section-block phrase-search-card">',
       '<label class="eyebrow" for="phrase-search">Search Phrase</label>',
       '<input id="phrase-search" class="phrase-search-input" type="search" data-action="search-phrases" value="' + ui.escapeHtml(state.phraseSearchQuery) + '" placeholder="Search phrase or Chinese meaning" autocomplete="off">',
       renderSearchResults(ui, state),
       '</section>',
-      '<section class="practice-card phrase-card">',
+      '<section class="practice-card learning-question-card phrase-card">',
       '<p class="eyebrow">' + ui.escapeHtml(phrase.category) + '</p>',
       '<h3>' + ui.escapeHtml(phrase.meaning) + '</h3>',
       renderPhraseReveal(ui, state, phrase),
       '<div class="action-grid">',
       '<button class="secondary-button" type="button" data-action="toggle-favorite-current">Favorite</button>',
-      '<button class="success-button" type="button" data-action="mark-correct-current">Mark as Known</button>',
-      '<button class="danger-button" type="button" data-action="mark-wrong-current">Mark as Unknown</button>',
+      '<button class="success-button" type="button" data-action="mark-correct-current">✓ I Got It</button>',
+      '<button class="danger-button" type="button" data-action="mark-wrong-current">✗ Still Need Practice</button>',
       '</div>',
       '<div class="nav-row">',
       '<button class="secondary-button" type="button" data-action="prev-phrase"' + disabledAttr(store.canPrevPhrase()) + '>Previous</button>',
+      '<button class="secondary-button" type="button" data-action="open-jump">Jump To</button>',
       '<button class="primary-button" type="button" data-action="next-phrase"' + disabledAttr(store.canNextPhrase()) + '>Next</button>',
       '</div>',
       '</section>',
       renderBuildCard(ui, state, phrase),
+      state.jumpDialogOpen ? ui.jumpDialog(state.jumpValue, progress.total) : '',
     ].join('');
   }
 

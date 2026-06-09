@@ -183,6 +183,14 @@ test('project uses the confirmed static structure without router.js', () => {
   assert(!read('index.html').includes('router.js'), 'index.html must not reference router.js');
 });
 
+test('root layout is centered and mobile-safe', () => {
+  const css = read('style.css');
+  assert(css.includes('max-width: 1200px'), 'root content container has 1200px max width');
+  assert(css.includes('margin: 0 auto'), 'root content container centers itself');
+  assert(css.includes('overflow-x: hidden'), 'body prevents horizontal page scrolling');
+  assert(css.includes('grid-template-columns: repeat(2, minmax(0, 1fr))'), 'mobile primary mode grid uses two columns');
+});
+
 test('index.html loads every v2 corpus data pack before the corpus index', () => {
   const html = read('index.html');
   const expectedDataFiles = coreFiles.filter((file) => file.startsWith('data/'));
@@ -196,7 +204,7 @@ test('index.html loads every v2 corpus data pack before the corpus index', () =>
 });
 
 test('version is centralized and rendered in the footer', () => {
-  assertEqual(context.English365Config.version, 'V1.3.0', 'configured app version');
+  assertEqual(context.English365Config.version, 'V1.4.0', 'configured app version');
 
   const runtimeFiles = ['index.html', 'app.js', 'style.css', 'service-worker.js']
     .concat(walkFiles('js'))
@@ -204,7 +212,7 @@ test('version is centralized and rendered in the footer', () => {
     .concat(['manifest.json']);
   const versionOccurrences = [];
   for (const file of runtimeFiles) {
-    const matches = read(file).match(/V1.3.0/g) || [];
+    const matches = read(file).match(/V1.4.0/g) || [];
     for (let index = 0; index < matches.length; index += 1) {
       versionOccurrences.push(file);
     }
@@ -278,6 +286,7 @@ test('localStorage keys keep the confirmed v1 contract', () => {
   assertEqual(keys.stats, 'e365:v1:stats', 'stats key');
   assertEqual(keys.recent, 'e365:v1:recent', 'recent key');
   assertEqual(keys.prefs, 'e365:v1:prefs', 'prefs key');
+  assertEqual(keys.progress, 'e365:v1:progress', 'progress key');
 });
 
 test('corpus contains 10 scenes, 1000 sentences, and 100 conversations', () => {
@@ -394,9 +403,19 @@ test('Phrase Mode renders Chinese-first recall, search, and phrase refs', () => 
   store.markWrong(ref);
   const mistake = phraseContext.English365Storage.getMistakes()['phrase:phrase-005'];
   assert(mistake, 'unknown phrase saved to mistakes');
+  assertEqual(mistake.sourceMode, 'phrase', 'phrase mistake stores source mode');
+  assertEqual(mistake.zh, '你能不能……？', 'phrase mistake stores Chinese meaning');
+  assertEqual(mistake.en, 'Could you...?', 'phrase mistake stores English phrase');
   assertEqual(store.getState().stats.totalLearned, 1, 'phrase unknown counts as learning activity');
-  const mistakesHtml = phraseContext.English365Modes.mistakes.render(store, store.getState());
-  assert(mistakesHtml.includes('Could you...?'), 'mistakes render phrase text');
+  store.setMode('mistakes');
+  let mistakesHtml = phraseContext.English365Modes.mistakes.render(store, store.getState());
+  assert(mistakesHtml.includes('你能不能'), 'phrase mistake starts with Chinese meaning');
+  assert(mistakesHtml.includes('Show Phrase'), 'phrase mistake uses Show Phrase');
+  assert(!mistakesHtml.includes('Could you...?'), 'phrase mistake hides English initially');
+  store.showAnswer();
+  mistakesHtml = phraseContext.English365Modes.mistakes.render(store, store.getState());
+  assert(mistakesHtml.includes('Could you...?'), 'phrase mistake reveals phrase after Show Phrase');
+  assert(mistakesHtml.includes('Show Examples'), 'phrase mistake keeps examples behind a separate button');
 });
 
 test('Listening Challenge hides prompts until answer and can add mistakes', () => {
@@ -405,13 +424,13 @@ test('Listening Challenge hides prompts until answer and can add mistakes', () =
   loadScripts(challengeContext, coreFiles.concat(uiModeFiles));
   const store = challengeContext.English365Store.createStore();
 
-  store.setScene('hotel');
-  store.selectSentenceById('hotel-001');
+  store.setScene('daily-life');
+  store.selectSentenceById('daily-life-001');
   store.openMode('listening-challenge');
 
   let state = store.getState();
   assertEqual(state.mode, 'listening-challenge', 'challenge mode selected');
-  assert(state.currentItemId !== 'hotel-001', 'challenge selects a random sentence on entry');
+  assertEqual(state.currentItemId, 'daily-life-001', 'challenge resumes the saved sentence on entry');
 
   const sentence = store.getCurrentSentence();
   const renderer = challengeContext.English365Modes['listening-challenge'];
@@ -438,13 +457,14 @@ test('Listening Challenge hides prompts until answer and can add mistakes', () =
   const answerHtml = renderer.render(store, state);
   assert(answerHtml.includes(challengeContext.English365UI.escapeHtml(sentence.cn)), 'answer view shows Chinese');
   assert(answerHtml.includes(challengeContext.English365UI.escapeHtml(sentence.answers[0])), 'answer view shows English');
-  assert(answerHtml.includes('Understood'), 'answer view shows Understood');
-  assert(answerHtml.includes("Didn't Understand"), 'answer view shows Did not understand');
+  assert(answerHtml.includes('✓ I Got It'), 'answer view shows got it');
+  assert(answerHtml.includes('✗ Still Need Practice'), 'answer view shows still need practice');
 
   const ref = store.currentRef();
   store.markWrong();
   const mistake = challengeContext.English365Storage.getMistakes()[challengeContext.English365Corpus.refKey(ref)];
   assert(mistake, 'Did not understand adds current sentence to mistakes');
+  assertEqual(mistake.sourceMode, 'listeningChallenge', 'challenge mistake stores source mode');
   assertEqual(mistake.wrongCount, 1, 'challenge mistake wrong count');
 });
 
@@ -484,6 +504,13 @@ test('Statistics Mode renders summary cards and heatmap days', () => {
   const html = statisticsContext.English365Modes.statistics.render(updatedStore, updatedStore.getState());
 
   assert(html.includes('Learning Statistics'), 'statistics page title');
+  assert(html.includes('statistics-overview-grid'), 'statistics overview grid rendered');
+  assert(html.includes('Learning Time'), 'learning time section rendered');
+  assert(html.includes('Daily Activity'), 'daily activity section rendered');
+  assert(html.includes('Year Heatmap'), 'year heatmap section rendered');
+  assert(html.includes('Mode Progress'), 'mode progress section rendered');
+  assert(html.includes('Favorites'), 'favorites metric rendered');
+  assert(html.includes('Mistakes'), 'mistakes metric rendered');
   assert(html.includes('Today&#39;s Learning Time'), 'today learning time card');
   assert(html.includes('Total Learning Time'), 'total learning time card');
   assert(html.includes('heatmap-grid'), 'heatmap grid rendered');
@@ -507,8 +534,8 @@ test('all learning modes expose consistent Previous and Next navigation', () => 
   ]));
   const store = navContext.English365Store.createStore();
 
-  store.setScene('hotel');
-  store.selectSentenceById('hotel-001');
+  store.setScene('daily-life');
+  store.selectSentenceById('daily-life-001');
   store.setMode('sentence');
   let html = navContext.English365Modes.sentence.render(store, store.getState());
   assert(html.includes('data-action="prev-sentence" disabled'), 'sentence previous disabled at first item');
@@ -522,7 +549,7 @@ test('all learning modes expose consistent Previous and Next navigation', () => 
   assert(html.includes('data-action="prev-sentence"'), 'listening previous rendered');
   assert(html.includes('data-action="next-sentence"'), 'listening next rendered');
 
-  store.selectSentenceById('hotel-001');
+  store.selectSentenceById('daily-life-001');
   store.setMode('listening-challenge');
   html = navContext.English365Modes['listening-challenge'].render(store, store.getState());
   assert(html.includes('data-action="prev-sentence" disabled'), 'listening challenge previous disabled at first item');
@@ -572,6 +599,117 @@ test('all learning modes expose consistent Previous and Next navigation', () => 
   assertEqual(restoredMistakes.getState().currentMistakeKey, store.getState().currentMistakeKey, 'mistake cursor restores after refresh');
 });
 
+test('learning modes render live progress indicators and active mistake recall', () => {
+  const progressContext = createContext();
+  loadScripts(progressContext, coreFiles.concat([
+    'js/ui/cards.js',
+    'js/ui/buttons.js',
+    'js/modes/phrase-mode.js',
+    'js/modes/sentence-mode.js',
+    'js/modes/conversation-mode.js',
+    'js/modes/listening-mode.js',
+    'js/modes/listening-challenge-mode.js',
+    'js/modes/favorites-mode.js',
+    'js/modes/mistakes-mode.js',
+  ]));
+  const store = progressContext.English365Store.createStore();
+
+  store.selectSentenceById('daily-life-001');
+  store.setMode('sentence');
+  let html = progressContext.English365Modes.sentence.render(store, store.getState());
+  assert(html.includes('Sentence 1 / 1000'), 'sentence mode shows global progress');
+  store.nextSentence(false);
+  html = progressContext.English365Modes.sentence.render(store, store.getState());
+  assert(html.includes('Sentence 2 / 1000'), 'sentence progress updates after next');
+
+  store.setMode('listening');
+  html = progressContext.English365Modes.listening.render(store, store.getState());
+  assert(html.includes('Sentence 2 / 1000'), 'listening mode shows sentence progress');
+
+  store.setMode('listening-challenge');
+  html = progressContext.English365Modes['listening-challenge'].render(store, store.getState());
+  assert(html.includes('Sentence 2 / 1000'), 'listening challenge shows sentence progress');
+
+  store.startConversation('hotel');
+  store.setMode('conversation');
+  const conversationProgress = store.getConversationProgress();
+  html = progressContext.English365Modes.conversation.render(store, store.getState());
+  assert(html.includes('Conversation ' + conversationProgress.current + ' / 100'), 'conversation mode shows conversation progress');
+
+  store.openMode('phrase');
+  html = progressContext.English365Modes.phrase.render(store, store.getState());
+  assert(html.includes('Phrase 1 / 100'), 'phrase mode shows phrase progress');
+
+  store.toggleFavorite({ type: 'sentence', id: 'hotel-001', scene: 'hotel' });
+  store.toggleFavorite({ type: 'conversationTurn', conversationId: 'hotel-conv-001', id: 'hotel-conv-001:0', scene: 'hotel', turnIndex: 0 });
+  store.toggleFavorite({ type: 'phrase', id: 'phrase-001', scene: 'hotel' });
+  store.setMode('favorites');
+  html = progressContext.English365Modes.favorites.render(store, store.getState());
+  assert(html.includes('Sentence 1 / 3'), 'favorites show current collection position');
+  store.nextFavorite();
+  html = progressContext.English365Modes.favorites.render(store, store.getState());
+  assert(html.includes('Conversation 2 / 3'), 'favorites progress updates by current item type');
+
+  store.setMode('sentence');
+  store.selectSentenceById('hotel-001');
+  store.markWrong();
+  let mistake = progressContext.English365Storage.getMistakes()['sentence:hotel-001'];
+  assertEqual(mistake.sourceMode, 'sentence', 'sentence mistake stores source mode');
+  assert(mistake.zh && mistake.en, 'sentence mistake stores review text');
+  store.setMode('listening-challenge');
+  store.selectSentenceById('hotel-002');
+  store.markWrong();
+  mistake = progressContext.English365Storage.getMistakes()['sentence:hotel-002'];
+  assertEqual(mistake.sourceMode, 'listeningChallenge', 'listening challenge mistake stores source mode');
+
+  store.setMode('mistakes');
+  html = progressContext.English365Modes.mistakes.render(store, store.getState());
+  assert(html.includes('Mistake 1 / 2'), 'mistakes show collection progress');
+  assert(html.includes('Show Answer'), 'sentence mistake starts with show answer');
+  assert(!html.includes(progressContext.English365UI.escapeHtml(progressContext.English365Storage.getMistakes()['sentence:hotel-001'].en)), 'sentence mistake hides English initially');
+  store.showAnswer();
+  html = progressContext.English365Modes.mistakes.render(store, store.getState());
+  assert(html.includes('✓ I Got It'), 'mistake review shows got it after reveal');
+  assert(html.includes('✗ Still Need Practice'), 'mistake review shows still need practice after reveal');
+  store.nextMistake();
+  html = progressContext.English365Modes.mistakes.render(store, store.getState());
+  assert(html.includes('Mistake 2 / 2'), 'mistake progress updates after next');
+  assert(html.includes('Play Audio'), 'listening challenge mistake keeps audio available');
+});
+
+test('V2 learning pages use focused cards and learner-friendly evaluation labels', () => {
+  const visualContext = createContext();
+  loadScripts(visualContext, coreFiles.concat([
+    'js/ui/cards.js',
+    'js/ui/buttons.js',
+    'js/modes/sentence-mode.js',
+    'js/modes/phrase-mode.js',
+    'js/modes/listening-challenge-mode.js',
+  ]));
+  const store = visualContext.English365Store.createStore();
+
+  store.setMode('sentence');
+  let html = visualContext.English365Modes.sentence.render(store, store.getState());
+  assert(html.includes('learning-question-card'), 'sentence mode uses focused question card');
+  assert(html.includes('progress-bar-fill'), 'learning mode shows visual progress bar');
+  assert(html.includes('✓ I Got It'), 'correct action uses learner-friendly label');
+  assert(html.includes('✗ Still Need Practice'), 'wrong action uses learner-friendly label');
+  assert(!html.includes('>Correct<'), 'old Correct label removed');
+  assert(!html.includes('>Wrong<'), 'old Wrong label removed');
+
+  store.showAnswer();
+  html = visualContext.English365Modes.sentence.render(store, store.getState());
+  assert(html.includes('answer-reveal-card'), 'answer reveal uses dedicated card');
+
+  store.setMode('listening-challenge');
+  html = visualContext.English365Modes['listening-challenge'].render(store, store.getState());
+  assert(html.includes('learning-question-card'), 'listening challenge uses focused card');
+  store.showAnswer();
+  html = visualContext.English365Modes['listening-challenge'].render(store, store.getState());
+  assert(html.includes('✓ I Got It'), 'challenge understood label updated');
+  assert(html.includes('✗ Still Need Practice'), 'challenge wrong label updated');
+});
+
 test('Continue Learning saves lastMode, lastScene, and lastItemId', () => {
   const store = context.English365Store.createStore();
   store.setMode('listening');
@@ -587,6 +725,138 @@ test('Continue Learning saves lastMode, lastScene, and lastItemId', () => {
   assertEqual(restored.getState().mode, 'listening', 'restored mode');
   assertEqual(restored.getState().scene, 'hotel', 'restored scene');
   assertEqual(restored.getState().currentItemId, 'hotel-001', 'restored item');
+});
+
+test('Continue Learning stores independent mode progress and restores exact positions', () => {
+  const progressContext = createContext();
+  loadScripts(progressContext, fullAppFiles);
+  const store = progressContext.English365Store.createStore();
+
+  store.openMode('sentence');
+  store.jumpToCurrentMode(358);
+  assertEqual(store.getState().currentItemId, 'transportation-058', 'sentence jumps to global item 358');
+
+  store.openMode('phrase');
+  store.jumpToCurrentMode(42);
+  assertEqual(store.getState().currentPhraseId, 'phrase-042', 'phrase jumps to item 42');
+
+  store.openMode('conversation');
+  store.jumpToCurrentMode(15);
+  assertEqual(store.getState().currentConversationId, 'business-conv-001', 'conversation jumps to item 15');
+
+  const progress = progressContext.English365Storage.getProgress();
+  assertEqual(progress.sentenceCurrentIndex, 357, 'sentence progress stored independently');
+  assertEqual(progress.phraseCurrentIndex, 41, 'phrase progress stored independently');
+  assertEqual(progress.conversationCurrentIndex, 14, 'conversation progress stored independently');
+
+  const restored = progressContext.English365Store.createStore();
+  restored.openMode('sentence');
+  assertEqual(restored.getState().currentItemId, 'transportation-058', 'sentence mode resumes last item');
+  restored.openMode('phrase');
+  assertEqual(restored.getState().currentPhraseId, 'phrase-042', 'phrase mode resumes last item');
+  restored.openMode('conversation');
+  assertEqual(restored.getState().currentConversationId, 'business-conv-001', 'conversation mode resumes last item');
+
+  const recentProgress = restored.getRecentProgress();
+  assertEqual(recentProgress.mode, 'conversation', 'recent progress tracks most recent mode');
+  assertEqual(recentProgress.label, 'Conversation', 'recent progress label');
+  assertEqual(recentProgress.current, 15, 'recent progress item number');
+  assertEqual(recentProgress.total, 100, 'recent progress total');
+
+  restored.openMode('sentence');
+  restored.jumpToCurrentMode(358);
+  restored.openMode('listening');
+  restored.jumpToCurrentMode(10);
+  restored.openMode('statistics');
+  assertEqual(progressContext.English365Storage.getProgress().sentenceCurrentIndex, 357, 'statistics mode does not overwrite sentence progress');
+});
+
+test('Jump To dialog clamps values and progress displays percentage and bar', () => {
+  const jumpContext = createContext();
+  loadScripts(jumpContext, coreFiles.concat([
+    'js/ui/cards.js',
+    'js/ui/buttons.js',
+    'js/modes/sentence-mode.js',
+    'js/modes/phrase-mode.js',
+    'js/modes/favorites-mode.js',
+    'js/modes/mistakes-mode.js',
+  ]));
+  const store = jumpContext.English365Store.createStore();
+
+  store.openMode('sentence');
+  store.openJumpDialog();
+  let html = jumpContext.English365Modes.sentence.render(store, store.getState());
+  assert(html.includes('data-action="open-jump"'), 'jump button rendered');
+  assert(html.includes('Jump to item number'), 'jump dialog rendered');
+  assert(html.includes('Valid range: 1 - 1000'), 'jump dialog shows range');
+  assert(html.includes('0.1% Complete'), 'progress percentage rendered');
+  assert(html.includes('progress-bar-fill'), 'progress bar rendered');
+
+  store.jumpToCurrentMode(1500);
+  assertEqual(store.getState().currentItemId, 'entertainment-100', 'jump clamps above max to last sentence');
+  html = jumpContext.English365Modes.sentence.render(store, store.getState());
+  assert(html.includes('Sentence 1000 / 1000'), 'clamped max progress displayed');
+  assert(html.includes('100.0% Complete'), 'max percentage displayed');
+
+  store.jumpToCurrentMode(0);
+  assertEqual(store.getState().currentItemId, 'daily-life-001', 'jump clamps below min to first sentence');
+
+  store.openMode('phrase');
+  store.jumpToCurrentMode(101);
+  assertEqual(store.getState().currentPhraseId, 'phrase-100', 'phrase jump clamps to last phrase');
+
+  store.toggleFavorite({ type: 'sentence', id: 'hotel-001', scene: 'hotel' });
+  store.toggleFavorite({ type: 'phrase', id: 'phrase-001', scene: 'hotel' });
+  store.openMode('favorites');
+  store.jumpToCurrentMode(2);
+  assertEqual(store.getState().currentFavoriteKey, 'phrase:phrase-001', 'favorites jump uses collection index');
+});
+
+test('V1.4 home is compressed for iPhone first-screen use', () => {
+  const homeContext = createContext();
+  loadScripts(homeContext, fullAppFiles);
+  const store = homeContext.English365Store.createStore();
+
+  store.openMode('sentence');
+  store.jumpToCurrentMode(358);
+  store.openMode('phrase');
+  store.jumpToCurrentMode(42);
+
+  const html = homeContext.English365Home.render(store, store.getState());
+  assert(html.includes('class="learning-center mobile-learning-home"'), 'home uses compact mobile learning layout');
+  assert(html.includes('class="continue-hero-card ultra-compact-continue-card"'), 'continue card uses ultra compact layout');
+  assert(html.includes('Continue Learning'), 'continue card rendered');
+  assert(html.includes('Phrase Mode'), 'continue card shows recent mode');
+  assert(html.includes('42 / 100'), 'continue card shows exact position');
+  assert(html.includes('42%'), 'continue card shows compact percent');
+  assert(!html.includes('phrases remaining'), 'continue card omits remaining text');
+  assert(!html.includes('% Complete'), 'continue card omits verbose complete text');
+  assert(html.includes('class="today-stat-strip"'), 'today renders as compact stat strip');
+  assert(html.includes('⏱'), 'today learning time icon rendered');
+  assert(html.includes('🎯'), 'today completed icon rendered');
+  assert(!html.includes('Today&#39;s Learning Time'), 'today strip omits long metric label');
+  assertEqual((html.match(/class="today-stat"/g) || []).length, 2, 'home renders only two compact today stats');
+  assert(html.includes('class="mode-grid primary-mode-grid"'), 'primary mode grid rendered');
+  assertEqual((html.match(/compact-learning-mode-card/g) || []).length, 4, 'home renders four primary learning cards');
+  assert(html.includes('>Sentence<'), 'sentence card uses short label');
+  assert(html.includes('>Phrase<'), 'phrase card uses short label');
+  assert(html.includes('>Conversation<'), 'conversation card uses short label');
+  assert(html.includes('>Listening<'), 'listening card uses short label');
+  assert(!html.includes('Practical sentences'), 'primary cards omit descriptions');
+  assert(html.includes('<summary>More Modes</summary>'), 'more modes drawer rendered');
+  assert(html.includes('class="utility-section more-modes-drawer"'), 'secondary utility drawer rendered');
+  assert(!html.includes('class="utility-section more-modes-drawer" open'), 'more modes drawer is collapsed by default');
+  assert(html.includes('Listening Challenge Mode'), 'listening challenge remains reachable');
+  assert(html.includes('Learning Statistics'), 'statistics remains reachable');
+  assert(html.includes('Favorites Mode'), 'favorites remains reachable');
+  assert(html.includes('Mistakes Mode'), 'mistakes remains reachable');
+  assert(html.includes('class="home-scene-section"'), 'compact scene selector is on home');
+  assert(html.includes('>Daily<'), 'daily scene chip rendered');
+  assert(html.includes('>Hotel<'), 'hotel scene chip rendered');
+  assert(html.includes('>Travel<'), 'travel scene chip rendered');
+  assert(html.includes('>Office<'), 'office scene chip rendered');
+  assert(html.includes('<summary>Show Progress</summary>'), 'learning journey drawer is at bottom');
+  assert(!html.includes('class="progress-drawer" open'), 'learning journey is collapsed by default');
 });
 
 test('mistakes increment wrong and graduate after three correct answers', () => {

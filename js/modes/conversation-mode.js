@@ -18,23 +18,25 @@
   function render(store, state) {
     var ui = window.English365UI;
     var conversation = store.getCurrentConversation();
+    var conversationProgress = store.getConversationProgress();
     if (!conversation) {
-      return ui.backBar('Conversation Mode', state.scene) + '<section class="practice-card"><p>No conversations available.</p></section>';
+      return ui.backBar('Conversation Mode', state.scene) + '<section class="practice-card learning-question-card"><p>No conversations available.</p></section>';
     }
     var turn = conversation.turns[state.currentTurnIndex];
     var isUserPrompt = Array.isArray(turn.answers);
     var progress = state.currentTurnIndex + 1 + ' / ' + conversation.turns.length;
     var reveal = isUserPrompt
-      ? (state.answerVisible ? '<div class="answer-panel"><p class="eyebrow">Your Line</p>' + ui.answerList(turn.answers) + '</div>' : '<button class="primary-button full" type="button" data-action="show-answer">Show Answer</button>')
-      : (state.chineseVisible ? '<div class="answer-panel"><p class="eyebrow">Chinese</p><p>' + ui.escapeHtml(turn.cn) + '</p></div>' : '<button class="primary-button full" type="button" data-action="show-chinese">Show Chinese</button>');
+      ? (state.answerVisible ? '<div class="answer-panel answer-reveal-card"><p class="eyebrow">Your Line</p>' + ui.answerList(turn.answers) + '</div>' : '<button class="primary-button full" type="button" data-action="show-answer">Show Answer</button>')
+      : (state.chineseVisible ? '<div class="answer-panel answer-reveal-card"><p class="eyebrow">Chinese</p><p>' + ui.escapeHtml(turn.cn) + '</p></div>' : '<button class="primary-button full" type="button" data-action="show-chinese">Show Chinese</button>');
     var prompt = isUserPrompt
       ? '<p class="eyebrow">' + ui.escapeHtml(turn.role) + '</p><h3>' + ui.escapeHtml(turn.cn) + '</h3>'
       : '<p class="eyebrow">' + ui.escapeHtml(turn.role) + '</p><h3>' + ui.escapeHtml(turn.en) + '</h3>';
 
     return [
       ui.backBar('Conversation Mode', conversation.scene),
+      ui.progressIndicator(conversationProgress.label, conversationProgress.current, conversationProgress.total),
       '<section class="section-block"><div class="pill-row">' + renderConversationChoices(state) + '</div></section>',
-      '<section class="practice-card">',
+      '<section class="practice-card learning-question-card">',
       '<div class="card-header"><div><p class="eyebrow">' + ui.escapeHtml(conversation.title) + '</p><strong>' + ui.escapeHtml(progress) + '</strong></div></div>',
       prompt,
       reveal,
@@ -42,9 +44,11 @@
       ui.primaryActions(),
       '<div class="nav-row">',
       '<button class="secondary-button" type="button" data-action="prev-turn"' + disabledAttr(store.canPrevTurn()) + '>Previous</button>',
+      '<button class="secondary-button" type="button" data-action="open-jump">Jump To</button>',
       '<button class="primary-button" type="button" data-action="next-turn"' + disabledAttr(store.canNextTurn()) + '>Next</button>',
       '</div>',
       '</section>',
+      state.jumpDialogOpen ? ui.jumpDialog(state.jumpValue, conversationProgress.total) : '',
     ].join('');
   }
 

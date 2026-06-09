@@ -51,6 +51,19 @@
     };
   }
 
+  function createDefaultProgress() {
+    return {
+      sentenceCurrentIndex: 0,
+      conversationCurrentIndex: 0,
+      conversationTurnIndex: 0,
+      listeningCurrentIndex: 0,
+      listeningChallengeCurrentIndex: 0,
+      phraseCurrentIndex: 0,
+      favoritesCurrentIndex: 0,
+      mistakesCurrentIndex: 0,
+    };
+  }
+
   var storage = {
     keys: keys,
     readJson: readJson,
@@ -85,9 +98,16 @@
     savePrefs: function savePrefs(prefs) {
       writeJson(keys.prefs, Object.assign(createDefaultPrefs(), prefs));
     },
+    getProgress: function getProgress() {
+      return Object.assign(createDefaultProgress(), readJson(keys.progress, createDefaultProgress()));
+    },
+    saveProgress: function saveProgress(progress) {
+      writeJson(keys.progress, Object.assign(createDefaultProgress(), progress));
+    },
     createDefaultStats: createDefaultStats,
     createDefaultPrefs: createDefaultPrefs,
     createDefaultRecent: createDefaultRecent,
+    createDefaultProgress: createDefaultProgress,
   };
 
   window.English365Storage = storage;

@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'english365-cache-v1-3-0-phrase-2026-06-08';
+const CACHE_VERSION = 'english365-cache-v1-4-0-mobile-home-2026-06-09';
 const CACHE_ASSETS = [
   './',
   './index.html',
